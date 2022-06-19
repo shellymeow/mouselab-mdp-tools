@@ -26,4 +26,4 @@ path = (
     .joinpath(f"output/example_q_dict_{experiment_setting}.pickle")
 )
 with open(path, "wb") as f:
-    pickle.dump(f, info)
+    pickle.dump(info, f)

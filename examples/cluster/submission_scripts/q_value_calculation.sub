@@ -4,7 +4,7 @@ arguments = $(filename) $(experiment_setting:high_increasing) $(ground_truth_fil
 output = log/output.stdout
 error  = log/output.stderr
 log   = log/output.log
-request_memory = $(request_memory:100000)
+request_memory = 4096
 request_cpus = 1
 
 queue
