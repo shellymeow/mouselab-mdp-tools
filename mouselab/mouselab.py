@@ -150,7 +150,7 @@ class MouselabEnv(gym.Env):
 
         returns = [self.ground_truth[list(path)].sum() for path in self.optimal_paths()]
         if self.sample_term_reward:
-            return np.random.sample(returns)
+            return random.choice(returns)
         else:
             return np.mean(returns)
 
