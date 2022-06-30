@@ -5,3 +5,4 @@
 - [Valkyrie Felso](https://github.com/vmfelso)
 - [Ruiqi He](https://github.com/Reeche)
 - [Lovis Heindrich](https://github.com/lovis-heindrich)
+- [Srinidhi Srinivas](https://github.com/srinidhisrinivas)
