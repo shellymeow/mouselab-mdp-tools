@@ -5,6 +5,7 @@ from mouselab.envs.reward_settings import (
     large_increasing_reward,
     low_constant_reward,
     normal_env_reward_dict,
+    toy_imbalanced_reward,
 )
 
 # Standard environments found in the MCRL / Computational Microscope code
@@ -65,4 +66,11 @@ register(
     branching=[4, 1, 2],
     reward_inputs="depth",
     reward_dictionary=normal_env_reward_dict("constant_low"),
+)
+
+register(
+    name = "toy_imbalanced",
+    branching=[2, 1],
+    reward_inputs="node",
+    reward_dictionary=toy_imbalanced_reward,
 )
