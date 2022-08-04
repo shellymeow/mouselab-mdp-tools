@@ -421,6 +421,9 @@ class MouselabEnv(gym.Env):
 
     @classmethod
     def new_symmetric_registered(cls, experiment_setting, seed=None, **kwargs):
+        if registry(experiment_setting).reward_inputs != "depth":
+            raise ValueError("Symmetric can only be used if reward input is depth.")
+
         branching = registry(experiment_setting).branching
         reward = registry(experiment_setting).reward_function
 
