@@ -6,6 +6,8 @@ from gym import spaces
 from pydantic import NonNegativeFloat
 from toolz import get, memoize
 
+from numpy.random import default_rng
+
 from mouselab.distributions import PointMass, cmax, expectation, sample, smax
 from mouselab.envs.registry import registry
 from mouselab.graph_utils import (
@@ -40,6 +42,7 @@ class MouselabEnv(gym.Env):
         term_belief=True,
         sample_term_reward=False,
         last_action=0,
+        seed=None,
         mdp_graph_properties={},
     ):
         """
@@ -52,6 +55,7 @@ class MouselabEnv(gym.Env):
         :param sample_term_belief: TODO
         :param last_action: some cost functions depend on the last action,
                     this should generally be initialized as the starting node
+        :param seed: seed for numpy random number generator
         :param mdp_graph_properties: properties to add to mdp graph,
                     as dictionary of {attribute : dictionary of {node : value}}
         """
@@ -88,6 +92,8 @@ class MouselabEnv(gym.Env):
         self.last_action = last_action
         self.mdp_graph.nodes[last_action]["revealed"] = True
 
+        self.rng = default_rng(seed=seed)
+
         self.term_belief = term_belief
         self.sample_term_reward = sample_term_reward
         self.term_action = len(self.init)
@@ -116,7 +122,7 @@ class MouselabEnv(gym.Env):
 
     def _reset(self):
         if len(self.initial_states) > 1:
-            self.init = random.choice(
+            self.init = self.rng.choice(
                 self.initial_states, p=self.initial_state_probabilities
             )
         self._state = self.init
@@ -150,7 +156,7 @@ class MouselabEnv(gym.Env):
 
         returns = [self.ground_truth[list(path)].sum() for path in self.optimal_paths()]
         if self.sample_term_reward:
-            return random.choice(returns)
+            return self.rng.choice(returns)
         else:
             return np.mean(returns)
 
@@ -294,7 +300,7 @@ class MouselabEnv(gym.Env):
         r = self.ground_truth[node]
         lst = [self.rand_Q(n1) for n1 in self.tree[node]]
         if lst:
-            return r + random.choice(lst)
+            return r + self.rng.choice(lst)
         return r
 
     def mean_Q(self, node):
@@ -393,8 +399,6 @@ class MouselabEnv(gym.Env):
     @classmethod
     def new_symmetric(cls, branching, reward, seed=None, **kwargs):
         """Returns a MouselabEnv with a symmetric structure."""
-        if seed is not None:
-            np.random.seed(seed)
         if not callable(reward):
             r = reward
             reward = lambda depth: r
@@ -413,7 +417,7 @@ class MouselabEnv(gym.Env):
             return my_idx
 
         expand(0)
-        return cls(tree, init, **kwargs)
+        return cls(tree, init, seed=seed, **kwargs)
 
     @classmethod
     def new_symmetric_registered(cls, experiment_setting, seed=None, **kwargs):
