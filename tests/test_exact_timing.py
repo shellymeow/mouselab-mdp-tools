@@ -20,7 +20,7 @@ exact_timing_test_data = [
         "env": {
             "name": "small_solve",
             "branching": [2, 2],
-            "reward_inputs": ["depth"],
+            "reward_inputs": "depth",
             "reward_dictionary": high_increasing_reward,
         },
         "kwargs": [
@@ -34,7 +34,7 @@ exact_timing_test_data = [
         "env": {
             "name": "medium_solve",
             "branching": [2, 1, 2],
-            "reward_inputs": ["depth"],
+            "reward_inputs": "depth",
             "reward_dictionary": high_increasing_reward,
         },
         "kwargs": [
