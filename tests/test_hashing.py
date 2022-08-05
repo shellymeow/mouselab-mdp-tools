@@ -14,7 +14,7 @@ test_env_data = [
         "env": {
             "name": "old_cat_hi",
             "branching": [3, 1, 2],
-            "reward_inputs": ["depth"],
+            "reward_inputs": "depth",
             "reward_dictionary": high_increasing_reward,
         }
     },
@@ -22,7 +22,7 @@ test_env_data = [
         "env": {
             "name": "new_cat_hi",
             "branching": [3, 1, 2],
-            "reward_inputs": ["depth"],
+            "reward_inputs": "depth",
             "reward_dictionary": high_increasing_reward,
         },
     },

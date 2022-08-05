@@ -12,6 +12,12 @@ high_decreasing_reward = {
     3: Categorical([-4, -2, 2, 4]),
 }
 
+toy_imbalanced_reward = {
+    1: Categorical([-4, -2, 2, 4]),
+    3: Categorical([-8, -4, 4, 8]),
+    2: Categorical([-8, -4, 4, 8]),
+    4: Categorical([-48, -24, 24, 48]),
+}
 
 def low_constant_reward(depth):
     return {depth: Categorical([-10, -5, 5, 10]) for depth in range(1, depth + 1)}
