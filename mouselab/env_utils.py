@@ -121,7 +121,7 @@ def deduplicate_states(complete_states, replacement_value=0, verbose=True):
     return complete_states[indices, :]
 
 
-def get_sa_pairs_from_states(states):
+def get_sa_pairs_from_states(states, terminal_action=None):
     """
     Gets all state action pairs from a list of states
     """
@@ -131,7 +131,7 @@ def get_sa_pairs_from_states(states):
             idx
             for idx, list_item in enumerate(state)
             if isinstance(list_item, Categorical)
-        ] + [len(state)]
+        ] + [len(state) if terminal_action is None else terminal_action]
 
         all_sa_pairs.extend([(tuple(state), action) for action in valid_actions])
     return all_sa_pairs
@@ -154,9 +154,15 @@ def get_all_possible_sa_pairs_for_env(
         all_states, replacement_value=replacement_value, verbose=verbose
     )
 
-    all_sa_pairs = get_sa_pairs_from_states(dedup_states)
+    all_sa_pairs = get_sa_pairs_from_states(dedup_states, terminal_action=categorical_gym_env.term_action)
 
-    return all_sa_pairs
+    if categorical_gym_env.include_last_action:
+        all_sa_pairs_with_last_action = []
+        for s,a in all_sa_pairs:
+            all_sa_pairs_with_last_action.extend([((*s[:-1], action_index+1),a) for action_index, action in enumerate(s[1:-1]) if not hasattr(action, "sample")])
+        return all_sa_pairs_with_last_action
+    else:
+        return all_sa_pairs
 
 
 # ========================================================================================
