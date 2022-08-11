@@ -153,7 +153,7 @@ class MouselabEnv(gym.Env):
             reward = self.cost(action)
             done = False
         # update last action
-        if self.include_last_action:
+        if self.include_last_action and (self._state is not self.term_state):
             # state is tuple, so need to convert to list to modify last action
             state_list = list(self._state)
             # nodes are first len-1 entries, last action is last entry
@@ -199,6 +199,12 @@ class MouselabEnv(gym.Env):
         """
         if action == self.term_action:
             yield (1, self.term_state, self.expected_term_reward(state))
+        elif self.include_last_action:
+            for r, p in state[action]:
+                s1 = list(state)
+                s1[action] = r
+                s1[-1] = action
+                yield (p, tuple(s1), self.cost(action))
         else:
             for r, p in state[action]:
                 s1 = list(state)
