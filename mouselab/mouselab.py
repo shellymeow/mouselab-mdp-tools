@@ -41,7 +41,7 @@ class MouselabEnv(gym.Env):
         cost=0,
         term_belief=True,
         sample_term_reward=False,
-        last_action=0,
+        include_last_action : bool = False,
         seed=None,
         mdp_graph_properties={},
     ):
@@ -53,7 +53,7 @@ class MouselabEnv(gym.Env):
                     or function implemented similar to those in mouselab.cost_functions
         :param term_belief: TODO
         :param sample_term_belief: TODO
-        :param last_action: some cost functions depend on the last action,
+        :param include_last_action: some cost functions depend on the last action,
                     this should generally be initialized as the starting node
         :param seed: seed for numpy random number generator
         :param mdp_graph_properties: properties to add to mdp graph,
@@ -62,11 +62,7 @@ class MouselabEnv(gym.Env):
         self.tree = tree
         mdp_graph = graph_from_adjacency_list(self.tree)
         # add properties to mdp_graph for cost function and possible calculating returns
-        mdp_graph = annotate_mdp_graph(mdp_graph, mdp_graph_properties)
-        # add clicked property to the graph
-        self.mdp_graph = add_property_to_graph(
-            mdp_graph, "revealed", {node: False for node in mdp_graph.nodes}
-        )
+        self.mdp_graph = annotate_mdp_graph(mdp_graph, mdp_graph_properties)
 
         self.init = (0, *init[1:])
 
@@ -82,15 +78,13 @@ class MouselabEnv(gym.Env):
         if hasattr(cost, "__call__"):
             # reads in all graph attributes and last action
             self.cost = lambda node: cost(
-                node, last_action=self.last_action, graph=self.mdp_graph
+                node, last_action=self._state[-1] if self.include_last_action else 0, graph=self.mdp_graph
             )
         else:
             # make the cost function return scalar cost for all inputs if not callable
             self.cost = lambda node: -abs(cost)
 
-        # in Val's experiments participants must click on node 0 to begin
-        self.last_action = last_action
-        self.mdp_graph.nodes[last_action]["revealed"] = True
+        self.include_last_action = include_last_action
 
         self.rng = default_rng(seed=seed)
 
@@ -126,6 +120,18 @@ class MouselabEnv(gym.Env):
                 self.initial_states, p=self.initial_state_probabilities
             )
         self._state = self.init
+
+        # in Val's experiments participants must click on node 0 to begin
+        self.mdp_graph.nodes[0]["revealed"] = True
+
+        if self.include_last_action:
+            self._state = (*self._state, 0)
+
+        # add clicked property to the graph
+        self.mdp_graph = add_property_to_graph(
+            self.mdp_graph, "revealed", {node: False for node in self.mdp_graph.nodes}
+        )
+
         return self._state
 
     def step(self, action):
@@ -147,7 +153,11 @@ class MouselabEnv(gym.Env):
             reward = self.cost(action)
             done = False
         # update last action
-        self.last_action = action
+        if self.include_last_action:
+            # state is tuple, so need to convert to list to modify last action
+            state_list = list(self._state)
+            # nodes are first len-1 entries, last action is last entry
+            self._state = (*state_list[:-1], action)
         return self._state, reward, done, {}
 
     def _term_reward(self):

@@ -223,6 +223,7 @@ def test_distance_cost(distance_cost_test_cases):
         experiment_setting,
         mdp_graph_properties=mdp_graph_properties,
         cost=cost_function,
+        include_last_action=True,
     )
 
     if states[0] > 0:
