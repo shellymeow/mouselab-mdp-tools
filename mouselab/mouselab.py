@@ -99,6 +99,9 @@ class MouselabEnv(gym.Env):
         self.initial_states = [self.init]
         self.initial_state_probabilities = [1.0]
 
+        if self.include_last_action:
+            self.initial_states = [(*initial_state, 0) for initial_state in self.initial_states]
+
         self.exact = True  # TODO
 
         self.subtree = self._get_subtree()
