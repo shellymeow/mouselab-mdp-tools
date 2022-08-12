@@ -121,9 +121,6 @@ class MouselabEnv(gym.Env):
             )
         self._state = self.init
 
-        # in Val's experiments participants must click on node 0 to begin
-        self.mdp_graph.nodes[0]["revealed"] = True
-
         if self.include_last_action:
             self._state = (*self._state, 0)
 
@@ -131,6 +128,8 @@ class MouselabEnv(gym.Env):
         self.mdp_graph = add_property_to_graph(
             self.mdp_graph, "revealed", {node: False for node in self.mdp_graph.nodes}
         )
+        # in Val's experiments participants must click on node 0 to begin
+        self.mdp_graph.nodes[0]["revealed"] = True
 
         return self._state
 
