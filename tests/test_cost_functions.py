@@ -166,7 +166,7 @@ def test_depth_cost(depth_cost_test_cases):
 
     cost_function_result = {}
     for node in depth_result.keys():
-        cost_function_result[node] = env.cost(node)
+        cost_function_result[node] = env.cost(env._state, node)
 
     assert depth_result == cost_function_result
 
@@ -228,7 +228,7 @@ def test_distance_cost(distance_cost_test_cases):
 
     if states[0] > 0:
         env.step(states[0])
-    assert env.cost(states[1]) == -cost_output
+    assert env.cost(env._state, states[1]) == -cost_output
     # can only step if next action is greater than 0
     # we have a test case where it is 0 to check symmetry
     if states[1] > 0:
@@ -268,7 +268,7 @@ def test_side_cost(experiment_setting, mdp_graph_properties, side_dict):
 
     constructed_side_costs = {}
     for node in side_dict.keys():
-        constructed_side_costs[node] = env.cost(node)
+        constructed_side_costs[node] = env.cost(env._state, node)
 
     assert constructed_side_costs == side_dict
 
@@ -327,4 +327,4 @@ def test_forward_cost(forward_cost_test_cases):
 
     if states[0] > 0:
         env.step(states[0])
-    assert env.cost(states[1]) == cost_output
+    assert env.cost(env._state, states[1]) == cost_output
