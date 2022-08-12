@@ -159,7 +159,10 @@ def get_all_possible_sa_pairs_for_env(
     if categorical_gym_env.include_last_action:
         all_sa_pairs_with_last_action = []
         for s,a in all_sa_pairs:
-            all_sa_pairs_with_last_action.extend([((*s[:-1], action_index+1),a) for action_index, action in enumerate(s[1:-1]) if not hasattr(action, "sample")])
+            if all(hasattr(action, "sample") for action_index, action in enumerate(s[1:-1])):
+                all_sa_pairs_with_last_action.append((s,a))
+            else:
+                all_sa_pairs_with_last_action.extend([((*s[:-1], action_index+1),a) for action_index, action in enumerate(s[1:-1]) if not hasattr(action, "sample")])
         return all_sa_pairs_with_last_action
     else:
         return all_sa_pairs
