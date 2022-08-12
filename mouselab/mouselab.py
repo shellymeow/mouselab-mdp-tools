@@ -77,12 +77,12 @@ class MouselabEnv(gym.Env):
 
         if hasattr(cost, "__call__"):
             # reads in all graph attributes and last action
-            self.cost = lambda node: cost(
-                node, last_action=self._state[-1] if self.include_last_action else 0, graph=self.mdp_graph
+            self.cost = lambda state, action: cost(
+                state, action, graph=self.mdp_graph
             )
         else:
             # make the cost function return scalar cost for all inputs if not callable
-            self.cost = lambda node: -abs(cost)
+            self.cost = lambda state, action: -abs(cost)
 
         self.include_last_action = include_last_action
 
@@ -121,15 +121,9 @@ class MouselabEnv(gym.Env):
             )
         self._state = self.init
 
+        # in Val's experiments participants must click on node 0 to begin
         if self.include_last_action:
             self._state = (*self._state, 0)
-
-        # add clicked property to the graph
-        self.mdp_graph = add_property_to_graph(
-            self.mdp_graph, "revealed", {node: False for node in self.mdp_graph.nodes}
-        )
-        # in Val's experiments participants must click on node 0 to begin
-        self.mdp_graph.nodes[0]["revealed"] = True
 
         return self._state
 
@@ -148,8 +142,8 @@ class MouselabEnv(gym.Env):
             reward = 0
             done = False
         else:  # observe a new node
+            reward = self.cost(self._state, action)
             self._state = self._observe(action)
-            reward = self.cost(action)
             done = False
         # update last action
         if self.include_last_action and (self._state is not self.term_state):
@@ -176,7 +170,6 @@ class MouselabEnv(gym.Env):
             result = self.ground_truth[action]
         s = list(self._state)
         s[action] = result
-        self.mdp_graph.nodes[action]["revealed"] = True
         return tuple(s)
 
     def actions(self, state):
@@ -203,12 +196,12 @@ class MouselabEnv(gym.Env):
                 s1 = list(state)
                 s1[action] = r
                 s1[-1] = action
-                yield (p, tuple(s1), self.cost(action))
+                yield (p, tuple(s1), self.cost(state, action))
         else:
             for r, p in state[action]:
                 s1 = list(state)
                 s1[action] = r
-                yield (p, tuple(s1), self.cost(action))
+                yield (p, tuple(s1), self.cost(state, action))
 
     def action_features(self, action, state=None):
         state = state if state is not None else self._state
@@ -219,7 +212,7 @@ class MouselabEnv(gym.Env):
 
         return np.array(
             [
-                self.cost(action),
+                self.cost(state, action),
                 self.myopic_voc(action, state),
                 self.vpi_action(action, state),
                 self.vpi(state),
