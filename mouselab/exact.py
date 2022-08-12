@@ -29,8 +29,10 @@ def hash_tree(env, state):
         childs = sum(rec(c) for c in env.tree[n])
         return hash(str(x + childs))
 
-    return rec(0)
-
+    if env.include_last_action:
+        return rec(0) + state[-1]
+    else:
+        return rec(0)
 
 def solve(env, hash_state=None, actions=None, blinkered=None):
     """Returns Q, V, pi, and computation data for an mdp environment."""
