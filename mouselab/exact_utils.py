@@ -65,5 +65,9 @@ def construct_partial_q_dictionary(Q, env, selected_ground_truths):
         env, selected_ground_truths
     )
     sa = get_sa_pairs_from_states(all_possible_states)
+    
+    if env.include_last_action:
+        sa = add_extended_state_to_sa_pairs(sa)
+        
     q_dictionary = {pair: Q(*pair) for pair in sa}
     return q_dictionary
