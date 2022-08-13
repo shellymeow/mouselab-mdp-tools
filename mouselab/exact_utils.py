@@ -6,7 +6,7 @@ from mouselab.env_utils import (
     get_sa_pairs_from_states,
 )
 from mouselab.exact import solve
-
+from mouselab.env_utils import add_extended_state_to_sa_pairs
 
 def timed_solve_env(
     env, verbose=True, save_q=False, ground_truths=None, **solve_kwargs
@@ -36,6 +36,9 @@ def timed_solve_env(
 
         #  Save Q function
         if save_q is not None and ground_truths is not None:
+            if env.include_last_action:
+                # need to modify ground truths to include last clicked state
+                ground_truths = add_extended_state_to_sa_pairs(ground_truths)
             # In some cases, it is too costly to save whole Q function
             info["q_dictionary"] = construct_partial_q_dictionary(Q, env, ground_truths)
         elif save_q is not None:

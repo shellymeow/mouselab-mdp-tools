@@ -157,16 +157,21 @@ def get_all_possible_sa_pairs_for_env(
     all_sa_pairs = get_sa_pairs_from_states(dedup_states, terminal_action=categorical_gym_env.term_action)
 
     if categorical_gym_env.include_last_action:
-        all_sa_pairs_with_last_action = []
-        for s,a in all_sa_pairs:
-            if all(hasattr(action, "sample") for action_index, action in enumerate(s[1:-1])):
-                all_sa_pairs_with_last_action.append((s,a))
-            else:
-                all_sa_pairs_with_last_action.extend([((*s[:-1], action_index+1),a) for action_index, action in enumerate(s[1:-1]) if not hasattr(action, "sample")])
-        return all_sa_pairs_with_last_action
+        return add_extended_state_to_sa_pairs(all_sa_pairs)
     else:
         return all_sa_pairs
 
+
+def add_extended_state_to_sa_pairs(all_sa_pairs):
+    all_sa_pairs_with_last_action = []
+    for s, a in all_sa_pairs:
+        if all(hasattr(action, "sample") for action_index, action in enumerate(s[1:-1])):
+            all_sa_pairs_with_last_action.append((s, a))
+        else:
+            all_sa_pairs_with_last_action.extend(
+                [((*s[:-1], action_index + 1), a) for action_index, action in enumerate(s[1:-1]) if
+                 not hasattr(action, "sample")])
+    return all_sa_pairs_with_last_action
 
 # ========================================================================================
 #
