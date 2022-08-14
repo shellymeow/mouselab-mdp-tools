@@ -166,10 +166,10 @@ def add_extended_state_to_sa_pairs(all_sa_pairs):
     all_sa_pairs_with_last_action = []
     for s, a in all_sa_pairs:
         if all(hasattr(action, "sample") for action_index, action in enumerate(s[1:-1])):
-            all_sa_pairs_with_last_action.append((s, a))
+            all_sa_pairs_with_last_action.append(((*s, 0), a))
         else:
             all_sa_pairs_with_last_action.extend(
-                [((*s[:-1], action_index + 1), a) for action_index, action in enumerate(s[1:-1]) if
+                [((*s, action_index + 1),  a) for action_index, action in enumerate(s[1:-1]) if
                  not hasattr(action, "sample")])
     return all_sa_pairs_with_last_action
 
