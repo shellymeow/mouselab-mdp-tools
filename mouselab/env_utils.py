@@ -173,17 +173,6 @@ def add_extended_state_to_sa_pairs(all_sa_pairs):
                  not hasattr(action, "sample")])
     return all_sa_pairs_with_last_action
 
-def add_extended_state_to_state_list(all_states):
-    all_states_with_last_action = []
-    for s in all_states:
-        if all(hasattr(action, "sample") for action_index, action in enumerate(s[1:-1])):
-            all_states_with_last_action.append((s, a))
-        else:
-            all_states_with_last_action.extend(
-                [((*s[:-1], action_index + 1), a) for action_index, action in enumerate(s[1:-1]) if
-                 not hasattr(action, "sample")])
-    return all_sa_pairs_with_last_action
-
 # ========================================================================================
 #
 # These functions are used to extract states from a JSON file of possible trials
