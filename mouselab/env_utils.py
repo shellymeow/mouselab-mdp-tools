@@ -45,7 +45,7 @@ def get_all_possible_ground_truths(categorical_gym_env):
     """
     possible_vals = [
         state.vals if isinstance(state, Categorical) else tuple([state])
-        for state in categorical_gym_env._state
+        for state in (categorical_gym_env._state if not categorical_gym_env.include_last_action else categorical_gym_env._state[:-1])
     ]
 
     possible_ground_truths = product(*possible_vals)
