@@ -104,7 +104,7 @@ def test_manual_distance(fixture_manual_distance):
 
 
 def test_exact_extended(test_env):
-    _, _, _ , info = timed_solve_env(test_env, verbose=False, save_q=True, hash_state=None)
+    _, _, _ , info = timed_solve_env(test_env, verbose=False, save_q=True, hash_state="test")
     _, _, _, info_mem = timed_solve_env(test_env, verbose=False, save_q=True)
 
     assert info["q_dictionary"]==info_mem["q_dictionary"]
