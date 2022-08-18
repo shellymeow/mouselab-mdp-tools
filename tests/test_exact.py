@@ -40,19 +40,19 @@ exact_test_case_data = [
             }
         },
         "structure": {
-            "layout": {
+            "layout" : {
                 "0": [0, 0],
                 "1": [0, -1],
                 "2": [1, -1],
-                "3": [-1, -1],
-                "4": [2, -1],
+                "3": [2, -1],
+                "4": [-1, -1],
                 "5": [-2, -1],
             },
             "initial": "0",
-            "graph": {
+            "graph"  : {
                 "0": {"up": [0, "1"]},
-                "1": {"right": [0, "2"], "left": [0, "3"]},
-                "2": {"right": [0, "4"]},
+                "1": {"right": [0, "2"], "left": [0, "4"]},
+                "2": {"right": [0, "3"]},
                 "3": {"left": [0, "5"]},
                 "4": {},
                 "5": {},
@@ -110,7 +110,7 @@ def test_exact_extended(test_env):
     assert info["q_dictionary"]==info_mem["q_dictionary"]
 
 
-click_orders = [[(1,2,3),(2,3,1),(3,1,2)],[(2,3),(3,2)],[(1,2),(2,1)],[(3,1),(1,3)]]
+
 extended_belief_state_test_case = [
     {
         "env"      : {
@@ -130,7 +130,40 @@ extended_belief_state_test_case = [
             },
         },
         "click_orders" : click_order
-    } for click_order in click_orders
+    } for click_order in [[(1,2),(2,1)],[(3,1),(1,3)]]
+] + [
+    {
+        "env"      : {
+            "name"             : "medium_test_case",
+            "branching"        : [1, 2, 1],
+            "reward_inputs"    : "depth",
+            "reward_dictionary": {
+                1: Categorical([-500]),
+                2: Categorical([-60, 60]),
+                3: Categorical([-90, 90]),
+            }
+        },
+        "structure": {
+            "layout" : {
+                "0": [0, 0],
+                "1": [0, -1],
+                "2": [1, -1],
+                "3": [2, -1],
+                "4": [-1, -1],
+                "5": [-2, -1],
+            },
+            "initial": "0",
+            "graph"  : {
+                "0": {"up": [0, "1"]},
+                "1": {"right": [0, "2"], "left": [0, "4"]},
+                "2": {"right": [0, "3"]},
+                "3": {"left": [0, "5"]},
+                "4": {},
+                "5": {},
+            },
+        },
+        "click_orders": click_order
+    } for click_order in [[(2,4,5), (2,5,4)]]
 ]
 
 
