@@ -44,6 +44,11 @@ def solve(env, hash_state=None, actions=None, blinkered=None):
         elif hasattr(env, "tree"):
             # hash_state = lambda state: sort_tree(env, state)
             hash_state = lambda state: hash_tree(env, state)
+
+    # for tests with no hashing
+    if hash_state == "test":
+        hash_state = None
+
     if actions is None:
         actions = env.actions
     if blinkered == "recursive":
