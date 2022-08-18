@@ -113,7 +113,7 @@ def backward_search_cost(added_cost=1, inspection_cost=1, include_start=False):
         :param graph: graph
         """
         revealed_nodes = [
-            node_idx for node_idx, node in enumerate(state) if not hasattr(node, "sample")
+            node_idx for node_idx, node in enumerate(state) if not hasattr(node, "sample") and node_idx in graph.nodes
         ]
 
         if not include_start:
@@ -150,13 +150,16 @@ def forward_search_cost(added_cost=1, inspection_cost=1, include_start=False):
         :param graph: graph
         """
         revealed_nodes = [
-            node_idx for node_idx, node in enumerate(state) if not hasattr(node, "sample")
+            node_idx for node_idx, node in enumerate(state) if not hasattr(node, "sample") and node_idx in graph.nodes
         ]
 
         if not include_start:
             revealed_nodes.remove(0)
 
-        successors = chain(*(graph.successors(node) for node in revealed_nodes))
+        try:
+            successors = chain(*(graph.successors(node) for node in revealed_nodes))
+        except:
+            x=1
 
         if action in successors:
             return -(inspection_cost + added_cost)
@@ -187,7 +190,7 @@ def neighbor_search_cost(added_cost=1, inspection_cost=1, include_start=False):
         :param graph: graph
         """
         revealed_nodes = [
-            node_idx for node_idx, node in enumerate(state) if not hasattr(node, "sample")
+            node_idx for node_idx, node in enumerate(state) if not hasattr(node, "sample") and node_idx in graph.nodes
         ]
 
         if not include_start:
