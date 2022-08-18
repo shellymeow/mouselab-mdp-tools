@@ -104,11 +104,13 @@ def test_manual_distance(fixture_manual_distance):
 
 
 def test_exact_extended(test_env):
-    _, _, _ , info = timed_solve_env(test_env, verbose=False, save_q=True, hash_state="test")
-    _, _, _, info_mem = timed_solve_env(test_env, verbose=False, save_q=True)
+    Q, V, _ , _ = timed_solve_env(test_env, verbose=False, save_q=False, hash_state="test")
+    Q_mem, V_mem, _, _ = timed_solve_env(test_env, verbose=False, save_q=False)
 
-    assert info["q_dictionary"]==info_mem["q_dictionary"]
+    sa_pairs = get_all_possible_sa_pairs_for_env(test_env)
 
+    for sa_pair in sa_pairs:
+        assert Q(*sa_pair)==Q_mem(*sa_pair)
 
 
 extended_belief_state_test_case = [
