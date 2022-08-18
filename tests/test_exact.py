@@ -38,7 +38,26 @@ exact_test_case_data = [
                 2: Categorical([-60, 60]),
                 3: Categorical([-90, 90]),
             }
-        }
+        },
+        "structure": {
+            "layout": {
+                "0": [0, 0],
+                "1": [0, -1],
+                "2": [1, -1],
+                "3": [-1, -1],
+                "4": [2, -1],
+                "5": [-2, -1],
+            },
+            "initial": "0",
+            "graph": {
+                "0": {"up": [0, "1"]},
+                "1": {"right": [0, "2"], "left": [0, "3"]},
+                "2": {"right": [0, "4"]},
+                "3": {"left": [0, "5"]},
+                "4": {},
+                "5": {},
+            },
+        },
     },
 ]
 
@@ -47,12 +66,9 @@ exact_test_case_data = [
 def test_env(request):
     register(**request.param["env"])
 
-    if "structure" in request.param:
-        env_params = {"cost":distance_graph_cost(max_penalty=None, distance_multiplier=1, given_cost=0),
+    env_params = {"cost":distance_graph_cost(max_penalty=None, distance_multiplier=1, given_cost=0),
                       "include_last_action":True,
                       "mdp_graph_properties":get_structure_properties(request.param["structure"])}
-    else:
-        env_params = {}
 
     yield MouselabEnv.new_symmetric_registered(request.param["env"]["name"],
                                                **env_params)
@@ -85,6 +101,13 @@ def test_manual_distance(fixture_manual_distance):
 
     Q, V, pi, info = timed_solve_env(test_env, verbose=False, save_q=True)
     assert Q(*sa)==q_value
+
+
+def test_exact_extended(test_env):
+    _, _, _ , info = timed_solve_env(test_env, verbose=False, save_q=True, hash_state=None)
+    _, _, _, info_mem = timed_solve_env(test_env, verbose=False, save_q=True)
+
+    assert info["q_dictionary"]==info_mem["q_dictionary"]
 
 
 click_orders = [[(1,2,3),(2,3,1),(3,1,2)],[(2,3),(3,2)],[(1,2),(2,1)],[(3,1),(1,3)]]
