@@ -24,15 +24,18 @@ def hash_tree(env, state):
     if state == "__term_state__":
         return hash(state)
 
+    if env.include_last_action:
+        node_last_clicks = [0 for _ in state[:-1]]
+        node_last_clicks[state[-1]] = 1
+
+        state = [*zip(state[:-1],node_last_clicks)]
+
     def rec(n):
         x = hash(state[n])
         childs = sum(rec(c) for c in env.tree[n])
         return hash(str(x + childs))
 
-    if env.include_last_action:
-        return rec(0) + state[-1]
-    else:
-        return rec(0)
+    return rec(0)
 
 def solve(env, hash_state=None, actions=None, blinkered=None):
     """Returns Q, V, pi, and computation data for an mdp environment."""
