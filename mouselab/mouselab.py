@@ -15,6 +15,7 @@ from mouselab.graph_utils import (
     annotate_mdp_graph,
     graph_from_adjacency_list,
 )
+import networkx as nx
 
 NO_CACHE = False
 if NO_CACHE:
@@ -472,10 +473,9 @@ class MouselabEnv(gym.Env):
         else:
             raise ValueError("Symmetric can only be used if reward input is depth.")
 
-    def _render(self, mode="notebook", close=False):
+    def _render(self, mode="notebook", close=False, use_networkx=False):
         if close:
             return
-        from graphviz import Digraph
 
         def color(val):
             if val > 0:
@@ -483,16 +483,29 @@ class MouselabEnv(gym.Env):
             else:
                 return "#F7BDC4"
 
-        dot = Digraph()
-        for x, ys in enumerate(self.tree):
-            r = self._state[x]
-            observed = not hasattr(self._state[x], "sample")
-            c = color(r) if observed else "grey"
-            label = str(round(r, 2)) if observed else str(x)
-            dot.node(str(x), label=label, style="filled", color=c)
-            for y in ys:
-                dot.edge(str(x), str(y))
-        return dot
+        if use_networkx == True:
+            assert ["layout" in self.mdp_graph.nodes[node] for node in
+                    self.mdp_graph.nodes(data=False)], "Must provide layout information for this render type"
+            # label should either be revealed value, or empty if still unrevealed
+            labels = {node: (str(self._state[node]) if not hasattr(self._state[node], 'sample') else '') for node in
+                      self.mdp_graph.nodes(data=False)}
+            layout = {node: self.mdp_graph.nodes[node]["layout"] for node in self.mdp_graph.nodes(data=False)}
+            node_color = [("#DEDEDE" if labels[node] == "" else color(float(labels[node]))) for node in range(len(self._state))]
+            plot = nx.draw(self.mdp_graph, pos=layout, labels=labels, node_color=node_color, node_size=2000, arrowsize=30)
+            return plot
+        else:
+            from graphviz import Digraph
+    
+            dot = Digraph()
+            for x, ys in enumerate(self.tree):
+                r = self._state[x]
+                observed = not hasattr(self._state[x], "sample")
+                c = color(r) if observed else "grey"
+                label = str(round(r, 2)) if observed else str(x)
+                dot.node(str(x), label=label, style="filled", color=c)
+                for y in ys:
+                    dot.edge(str(x), str(y))
+            return dot
 
     def to_obs_tree(self, state, node, obs=(), sort=True):
         maybe_sort = sorted if sort else lambda x: x
