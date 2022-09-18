@@ -43,19 +43,28 @@ def timed_solve_env(
                 V(s)
 
         #  Save Q function
-        if save_q is not None and ground_truths is not None:
-            # In some cases, it is too costly to save whole Q function
-            all_possible_states = get_all_possible_states_for_ground_truths(
-                env, ground_truths
-            )
-            
-            sa = get_sa_pairs_from_states(all_possible_states)
+        if save_q is not None:
+            if ground_truths is not None:
+                # In some cases, it is too costly to save whole Q function
+                all_possible_states = get_all_possible_states_for_ground_truths(
+                    env, ground_truths
+                )
 
-            if env.include_last_action:
-                sa = add_extended_state_to_sa_pairs(sa)
+                sa_pairs = get_sa_pairs_from_states(all_possible_states)
 
-            info["q_dictionary"] = {key: q_dictionary[key] for key in set(sa) & set(q_dictionary.keys())}
-        elif save_q is not None:
+                if env.include_last_action:
+                    sa_pairs = add_extended_state_to_sa_pairs(sa_pairs)
+            else:
+                sa_pairs = get_all_possible_sa_pairs_for_env(env, verbose=verbose)
+
+            sa_pairs = sorted(sa_pairs,
+                              key=lambda sa_pair: len([node for node in sa_pair[0] if hasattr(node, 'sample')]))
+
+            if len(set(q_dictionary.keys()).intersection(set(sa_pairs))) < len(set(sa_pairs)):
+                [Q(*sa_pair) for sa_pair in sa_pairs]
+
+            info["q_dictionary"] = {key: q_dictionary[key] for key in set(sa_pairs) & set(q_dictionary.keys())}
+
             info["q_dictionary"] = q_dictionary
 
     return Q, V, pi, info
