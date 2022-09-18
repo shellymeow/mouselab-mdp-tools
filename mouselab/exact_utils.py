@@ -15,13 +15,21 @@ def timed_solve_env(
     Solves environment, saves elapsed time and optionally prints value and elapsed time
     :param env: MouselabEnv with only discrete distribution (must not be too big)
     :param verbose: Whether or not to print out solve information once done
+    :param save_q:
+    :param ground_truths:
+    :param solve_kwargs:
     :return: Q, V, pi, info
              Q, V, pi are all recursive functions
              info contains the number of times Q and V were called
                 as well as the elapsed time ("time")
     """
+    if save_q is True:
+        q_dictionary={}
+    else:
+        q_dictionary=None
+        
     with Timer() as t:
-        Q, V, pi, info = solve(env, **solve_kwargs)
+        Q, V, pi, info = solve(env, q_dictionary=q_dictionary,**solve_kwargs)
         info["time"] = t.elapsed
         if verbose:
             optimal_value = sum(
@@ -37,34 +45,18 @@ def timed_solve_env(
         #  Save Q function
         if save_q is not None and ground_truths is not None:
             # In some cases, it is too costly to save whole Q function
-            info["q_dictionary"] = construct_partial_q_dictionary(Q, env, ground_truths)
+            all_possible_states = get_all_possible_states_for_ground_truths(
+                env, ground_truths
+            )
+            
+            sa = get_sa_pairs_from_states(all_possible_states)
+
+            if env.include_last_action:
+                sa = add_extended_state_to_sa_pairs(sa)
+
+            info["q_dictionary"] = {key: q_dictionary[key] for key in set(sa) & set(q_dictionary.keys())}
         elif save_q is not None:
-            info["q_dictionary"] = construct_q_dictionary(Q, env, verbose)
+            info["q_dictionary"] = q_dictionary
 
     return Q, V, pi, info
 
-
-def construct_q_dictionary(Q, env, verbose=False):
-    """
-    Construct q dictionary for env, given environment is solved
-    """
-
-    sa = get_all_possible_sa_pairs_for_env(env, verbose=verbose)
-    q_dictionary = {pair: Q(*pair) for pair in sa}
-    return q_dictionary
-
-
-def construct_partial_q_dictionary(Q, env, selected_ground_truths):
-    """
-    Construct q dictionary for only specified ground truth values
-    """
-    all_possible_states = get_all_possible_states_for_ground_truths(
-        env, selected_ground_truths
-    )
-    sa = get_sa_pairs_from_states(all_possible_states)
-    
-    if env.include_last_action:
-        sa = add_extended_state_to_sa_pairs(sa)
-        
-    q_dictionary = {pair: Q(*pair) for pair in sa}
-    return q_dictionary
