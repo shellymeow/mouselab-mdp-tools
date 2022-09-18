@@ -61,7 +61,7 @@ def timed_solve_env(
                               key=lambda sa_pair: len([node for node in sa_pair[0] if hasattr(node, 'sample')]))
 
             if len(set(q_dictionary.keys()).intersection(set(sa_pairs))) < len(set(sa_pairs)):
-                [Q(*sa_pair) for sa_pair in sa_pairs]
+                [Q(*sa_pair) for sa_pair in sa_pairs if sa_pair not in set(q_dictionary.keys())]
 
             info["q_dictionary"] = {key: q_dictionary[key] for key in set(sa_pairs) & set(q_dictionary.keys())}
 
