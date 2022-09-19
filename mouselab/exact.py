@@ -37,10 +37,8 @@ def hash_tree(env, state):
 
     return rec(0)
 
-def solve(env, hash_state=None, actions=None, blinkered=None, q_dictionary=None):
+def solve(env, hash_state=None, actions=None, blinkered=None):
     """Returns Q, V, pi, and computation data for an mdp environment."""
-    if q_dictionary is None:
-        q_dictionary = {}
     info = {"q": 0, "v": 0}  # track number of times each function is called
 
     if hash_state is None:
@@ -109,7 +107,7 @@ def solve(env, hash_state=None, actions=None, blinkered=None, q_dictionary=None)
     else:
         hash_key = None
 
-    @memoize(cache=q_dictionary)
+    @memoize
     def Q(s, a):
         info["q"] += 1
         action_subset = subset_actions(a)
