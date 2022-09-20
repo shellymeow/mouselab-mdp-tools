@@ -24,9 +24,11 @@ def hash_tree(env, state, action=None):
     if state == "__term_state__":
         return hash(state)
 
-    if env.include_last_action:
-        node_last_clicks = [0 for _ in state[:-1]]
-        node_last_clicks[state[-1]] = 1
+    if env.include_last_action and action is not env.term_action:
+        node_last_clicks = [distance.euclidean(
+            env.mdp_graph.nodes[action_idx]["layout"], env.mdp_graph.nodes[state[-1]]["layout"]
+        ) for action_idx, action in enumerate(state[:-1])]
+        # node_last_clicks[state[-1]] = 1
 
         state = [*zip(state[:-1],node_last_clicks)]
 
