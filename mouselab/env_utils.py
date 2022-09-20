@@ -262,3 +262,29 @@ def get_num_actions(branching):
     # add final action
     actions += 1
     return actions
+
+
+def generate_ground_truth_file(env, num_ground_truths=100, save_path=None, file_name="trials", seed=None):
+    """
+    Used for generating ground truth file (json)
+    """
+    if save_path is None:
+        save_path = Path(__file__).parents[0]
+
+    # get all possible ground truths, check size
+    all_ground_truths = list(get_all_possible_ground_truths(env))
+    if len(all_ground_truths) < num_ground_truths:
+        num_ground_truths = len(all_ground_truths)
+        print("Less ground truths possible than specified, saving all ground truths")
+
+    # select random trials
+    rng = np.random.default_rng(seed=seed)
+    stateRewards = rng.choice(all_ground_truths, num_ground_truths, replace=False)
+
+    # save trials in expected order
+    trial_data = [{"trial_id": hash(tuple(stateReward)), "stateRewards": [float(node) for node in list(stateReward)]}
+                  for stateReward in stateRewards]
+    with open(save_path.joinpath(f"{file_name}.json"), "w", encoding="utf-8") as f:
+        json.dump(trial_data, f)
+
+    return trial_data
