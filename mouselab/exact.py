@@ -19,7 +19,7 @@ def sort_tree(env, state):
     return tuple(state)
 
 
-def hash_tree(env, state):
+def hash_tree(env, state, action=None):
     """Breaks symmetry between belief states."""
     if state == "__term_state__":
         return hash(state)
@@ -29,6 +29,17 @@ def hash_tree(env, state):
         node_last_clicks[state[-1]] = 1
 
         state = [*zip(state[:-1],node_last_clicks)]
+
+    if action is not None and action is not env.term_action:
+        if env.include_last_action:
+            actions = [0 for _ in state]
+            actions[action] = 1
+
+            state = [tuple([*curr_state, action]) for curr_state, action in zip(state, actions)]
+        else:
+            actions = [0 for _ in state[:-1]]
+            actions[action] = 1
+            state = [*zip(state, actions)]
 
     def rec(n):
         x = hash(state[n])
