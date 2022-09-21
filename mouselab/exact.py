@@ -33,14 +33,11 @@ def hash_tree(env, state, action=None):
         state = [*zip(state[:-1],node_last_clicks)]
 
     if action is not None and action is not env.term_action:
+        actions = [0 for _ in state]
+        actions[action] = 1
         if env.include_last_action:
-            actions = [0 for _ in state]
-            actions[action] = 1
-
             state = [tuple([*curr_state, action]) for curr_state, action in zip(state, actions)]
         else:
-            actions = [0 for _ in state[:-1]]
-            actions[action] = 1
             state = [*zip(state, actions)]
 
     def rec(n):
