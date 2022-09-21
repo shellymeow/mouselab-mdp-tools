@@ -138,3 +138,36 @@ def solve(env, hash_state=None, actions=None, blinkered=None):
         return max(actions(s), key=lambda a: Q(s, a))
 
     return Q, V, pi, info
+
+def backward_solve(env, hash_key=None, verbose=True):
+    """
+    Rather than using memoization, we go backwards through the (state, action) pairs:
+        First through terminal action
+        Then through states from most revealed to the least revealed
+    """
+    Q = {}
+
+    sa_pairs = get_all_possible_sa_pairs_for_env(env)
+
+    # sort first by action == terminal and then by number of uncovered nodes
+    sa_pairs = sorted(sa_pairs, key=lambda sa_pair: (
+    sa_pair[1] == env.term_action, len([node for node in sa_pair[0] if not hasattr(node, 'sample')])), reverse=True)
+
+    if hash_key:
+        unique_hash_states = unique(sa_pairs, key=lambda sa_pair: hash_key(env, *sa_pair))
+
+        for sa_pair_idx, sa_pair in enumerate(unique_hash_states):
+            if sa_pair_idx % 50000 == 0 and verbose:
+                print(sa_pair_idx)
+            Q[hash_key(env, *sa_pair)] = sum(transition_probability * (reward + max(
+                (Q[hash_key(env, next_state, action=action)] for action in env.actions(next_state)), default=0)) for
+                                             transition_probability, next_state, reward in env.results(*sa_pair))
+    else:
+        for sa_pair_idx, sa_pair in enumerate(sa_pairs):
+            if sa_pair_idx % 50000 == 0 and verbose:
+                print(sa_pair_idx)
+            Q[hash_key(env, *sa_pair)] = sum(transition_probability * (reward + max(
+                (Q[hash_key(env, next_state, action=action)] for action in env.actions(next_state)), default=0)) for
+                                             transition_probability, next_state, reward in env.results(*sa_pair))
+
+    return Q
