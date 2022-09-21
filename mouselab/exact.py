@@ -1,6 +1,6 @@
 from toolz import memoize, unique
 from scipy.spatial import distance
-from mouselab.env_utils import get_all_possible_sa_pairs_for_env
+from mouselab.env_utils import get_all_possible_ground_truths
 
 def sort_tree(env, state):
     """Breaks symmetry between belief states.
@@ -140,6 +140,32 @@ def solve(env, hash_state=None, actions=None, blinkered=None):
 
     return Q, V, pi, info
 
+def get_previous_sa_pairs(env, sa_pair):
+    if env.include_last_action:
+        state = sa_pair[0][:-1]
+    else:
+        state = sa_pair[0]
+
+    previous_sa_pairs = []
+    for initial_state in env.initial_states:
+        for node_idx, node in enumerate(initial_state):
+            if hasattr(node, 'sample'):
+                curr_state = list(state)
+                curr_state[node_idx] = node
+
+                if env.include_last_action:
+                    previous_sa_pairs.extend([((*curr_state, last_node_idx),node_idx) for last_node_idx, last_node in enumerate(curr_state) if not hasattr(last_node, 'sample') and last_node_idx != 0])
+                    previous_sa_pairs.extend(
+                        [((*curr_state, last_node_idx), 8) for last_node_idx, last_node in enumerate(curr_state) if
+                            not hasattr(last_node, 'sample') and last_node_idx != 0])
+
+                else:
+                    previous_sa_pairs.extend(
+                        [(tuple(curr_state), node_idx)])
+                    previous_sa_pairs.extend(
+                        [(tuple(curr_state), 8)])
+    return previous_sa_pairs
+
 def backward_solve(env, hash_key=None, verbose=True):
     """
     Rather than using memoization, we go backwards through the (state, action) pairs:
@@ -154,29 +180,29 @@ def backward_solve(env, hash_key=None, verbose=True):
     if hash_key == "test":
         hash_key = lambda sa_pair: sa_pair
 
-    Q = {}
-
-    sa_pairs = get_all_possible_sa_pairs_for_env(env)
-
-    # sort first by action == terminal and then by number of uncovered nodes
-    sa_pairs = sorted(sa_pairs, key=lambda sa_pair: (
-    sa_pair[1] == env.term_action, len([node for node in sa_pair[0] if not hasattr(node, 'sample')])), reverse=True)
-
-    if hash_key:
-        unique_hash_states = unique(sa_pairs, key=lambda sa_pair: hash_key(env, *sa_pair))
-
-        for sa_pair_idx, sa_pair in enumerate(unique_hash_states):
-            if sa_pair_idx % 50000 == 0 and verbose:
-                print(sa_pair_idx)
-            Q[hash_key(env, *sa_pair)] = sum(transition_probability * (reward + max(
-                (Q[hash_key(env, next_state, action=action)] for action in env.actions(next_state)), default=0)) for
-                                             transition_probability, next_state, reward in env.results(*sa_pair))
+    if env.include_last_action:
+        sa_pairs = [((*ground_truth, 0), env.term_action) for ground_truth in get_all_possible_ground_truths(env)]
     else:
-        for sa_pair_idx, sa_pair in enumerate(sa_pairs):
-            if sa_pair_idx % 50000 == 0 and verbose:
-                print(sa_pair_idx)
-            Q[hash_key(env, *sa_pair)] = sum(transition_probability * (reward + max(
-                (Q[hash_key(env, next_state, action=action)] for action in env.actions(next_state)), default=0)) for
-                                             transition_probability, next_state, reward in env.results(*sa_pair))
+        sa_pairs = [(ground_truth, env.term_action) for ground_truth in get_all_possible_ground_truths(env)]
+
+    sa_pairs = list(unique(sa_pairs, key=lambda sa_pair: hash_key(sa_pair)))
+    Q = {hash_key(sa_pair): None for sa_pair in sa_pairs}
+
+    sa_pair_idx = 0
+    while len(sa_pairs) > 0:
+        sa_pair = sa_pairs.pop(0)
+
+        if sa_pair_idx % 50000 == 0 and verbose:
+            print(sa_pair_idx)
+        Q[hash_key(sa_pair)] = sum(transition_probability * (reward + max((Q[hash_key((next_state, action))] for action in env.actions(next_state)), default=0)) for transition_probability, next_state, reward in env.results(*sa_pair))
+
+        sa_pair_idx += 1
+
+        new_sa_pairs = get_previous_sa_pairs(env, sa_pair)
+        new_sa_pairs = list(unique(new_sa_pairs, key=lambda sa_pair: hash_key(sa_pair)))
+        new_sa_pairs = [sa_pair for sa_pair in new_sa_pairs if hash_key(sa_pair) not in Q.keys()]
+
+        sa_pairs.extend(new_sa_pairs)
+        Q = {**Q, **{hash_key(sa_pair): None for sa_pair in new_sa_pairs}}
 
     return Q
