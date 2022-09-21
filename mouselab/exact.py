@@ -146,6 +146,14 @@ def backward_solve(env, hash_key=None, verbose=True):
         First through terminal action
         Then through states from most revealed to the least revealed
     """
+    if hash_key is None:
+        if hasattr(env, "tree"):
+            hash_key = lambda sa_pair: hash_tree(env, *sa_pair)
+
+    # for tests with no hashing
+    if hash_key == "test":
+        hash_key = lambda sa_pair: sa_pair
+
     Q = {}
 
     sa_pairs = get_all_possible_sa_pairs_for_env(env)
