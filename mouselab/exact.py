@@ -156,14 +156,14 @@ def get_previous_sa_pairs(env, sa_pair):
                 if env.include_last_action:
                     previous_sa_pairs.extend([((*curr_state, last_node_idx),node_idx) for last_node_idx, last_node in enumerate(curr_state) if not hasattr(last_node, 'sample') and last_node_idx != 0])
                     previous_sa_pairs.extend(
-                        [((*curr_state, last_node_idx), 8) for last_node_idx, last_node in enumerate(curr_state) if
+                        [((*curr_state, last_node_idx), env.term_action) for last_node_idx, last_node in enumerate(curr_state) if
                             not hasattr(last_node, 'sample') and last_node_idx != 0])
 
                 else:
                     previous_sa_pairs.extend(
                         [(tuple(curr_state), node_idx)])
                     previous_sa_pairs.extend(
-                        [(tuple(curr_state), 8)])
+                        [(tuple(curr_state), env.term_action)])
     return previous_sa_pairs
 
 def backward_solve(env, hash_key=None, verbose=True):
