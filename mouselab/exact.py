@@ -1,5 +1,6 @@
-from toolz import memoize
-
+from toolz import memoize, unique
+from scipy import distance
+from mouselab.env_utils import get_all_possible_sa_pairs_for_env
 
 def sort_tree(env, state):
     """Breaks symmetry between belief states.
