@@ -5,11 +5,11 @@ from mouselab.env_utils import (
     get_all_possible_states_for_ground_truths,
     get_sa_pairs_from_states,
 )
-from mouselab.exact import solve
+from mouselab.exact import solve, backward_solve
 from mouselab.env_utils import add_extended_state_to_sa_pairs
 
 def timed_solve_env(
-    env, verbose=True, save_q=False, ground_truths=None, **solve_kwargs
+    env, verbose=True, save_q=False, ground_truths=None, backwards=False, **solve_kwargs
 ):
     """
     Solves environment, saves elapsed time and optionally prints value and elapsed time
@@ -17,6 +17,7 @@ def timed_solve_env(
     :param verbose: Whether or not to print out solve information once done
     :param save_q:
     :param ground_truths:
+    :param backwards:
     :param solve_kwargs:
     :return: Q, V, pi, info
              Q, V, pi are all recursive functions
@@ -24,7 +25,10 @@ def timed_solve_env(
                 as well as the elapsed time ("time")
     """
     with Timer() as t:
-        Q, V, pi, info = solve(env, **solve_kwargs)
+        if backwards:
+            Q = backward_solve(env, **solve_kwargs)
+        else:
+            Q, V, pi, info = solve(env, **solve_kwargs)
         info["time"] = t.elapsed
         if verbose:
             optimal_value = sum(
