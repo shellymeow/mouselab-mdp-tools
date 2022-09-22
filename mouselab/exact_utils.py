@@ -11,7 +11,7 @@ from mouselab.env_utils import add_extended_state_to_sa_pairs
 from toolz import unique
 
 def timed_solve_env(
-    env, verbose=True, save_q=False, ground_truths=None, backwards=False, hash_key=None, **solve_kwargs
+    env, verbose=True, save_q=False, ground_truths=None, backwards=False, hash_key=None, dedup_by_hash=False, **solve_kwargs
 ):
     """
     Solves environment, saves elapsed time and optionally prints value and elapsed time
@@ -42,7 +42,7 @@ def timed_solve_env(
                 print("optimal -> {:.2f} in {:.3f} sec".format(optimal_value, t.elapsed))
 
             if save_q:
-                info["q_dictionary"] = construct_q_dictionary(Q, env, ground_truths=ground_truths, verbose=verbose, hash_key=hash_key)
+                info["q_dictionary"] = construct_q_dictionary(Q, env, ground_truths=ground_truths, verbose=verbose, hash_key=hash_key, dedup_by_hash=dedup_by_hash)
 
         return None, None, None, info
     else:
