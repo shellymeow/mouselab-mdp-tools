@@ -62,8 +62,10 @@ def timed_solve_env(
 
             #  Save Q function
             if save_q:
+                if dedup_by_hash:
+                    hash_key = lambda sa_pair: hash_tree(env, *sa_pair)
                 # In some cases, it is too costly to save whole Q function
-                info["q_dictionary"] = construct_q_dictionary(Q, env, ground_truths=ground_truths, verbose=verbose)
+                info["q_dictionary"] = construct_q_dictionary(Q, env, ground_truths=ground_truths, verbose=verbose, hash_key=hash_key, dedup_by_hash=dedup_by_hash)
 
         return Q, V, pi, info
 
