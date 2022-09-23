@@ -45,7 +45,7 @@ def get_all_possible_ground_truths(categorical_gym_env):
     """
     possible_vals = [
         state.vals if isinstance(state, Categorical) else tuple([state])
-        for state in categorical_gym_env._state
+        for state in (categorical_gym_env._state if not categorical_gym_env.include_last_action else categorical_gym_env._state[:-1])
     ]
 
     possible_ground_truths = product(*possible_vals)
@@ -121,7 +121,7 @@ def deduplicate_states(complete_states, replacement_value=0, verbose=True):
     return complete_states[indices, :]
 
 
-def get_sa_pairs_from_states(states):
+def get_sa_pairs_from_states(states, terminal_action=None):
     """
     Gets all state action pairs from a list of states
     """
@@ -131,7 +131,7 @@ def get_sa_pairs_from_states(states):
             idx
             for idx, list_item in enumerate(state)
             if isinstance(list_item, Categorical)
-        ] + [len(state)]
+        ] + [len(state) if terminal_action is None else terminal_action]
 
         all_sa_pairs.extend([(tuple(state), action) for action in valid_actions])
     return all_sa_pairs
@@ -154,10 +154,24 @@ def get_all_possible_sa_pairs_for_env(
         all_states, replacement_value=replacement_value, verbose=verbose
     )
 
-    all_sa_pairs = get_sa_pairs_from_states(dedup_states)
+    all_sa_pairs = get_sa_pairs_from_states(dedup_states, terminal_action=categorical_gym_env.term_action)
 
-    return all_sa_pairs
+    if categorical_gym_env.include_last_action:
+        return add_extended_state_to_sa_pairs(all_sa_pairs)
+    else:
+        return all_sa_pairs
 
+
+def add_extended_state_to_sa_pairs(all_sa_pairs):
+    all_sa_pairs_with_last_action = []
+    for s, a in all_sa_pairs:
+        if all(hasattr(action, "sample") for action_index, action in enumerate(s[1:])):
+            all_sa_pairs_with_last_action.append(((*s, 0), a))
+        else:
+            all_sa_pairs_with_last_action.extend(
+                [((*s, action_index + 1),  a) for action_index, action in enumerate(s[1:]) if
+                 not hasattr(action, "sample")])
+    return all_sa_pairs_with_last_action
 
 # ========================================================================================
 #
@@ -248,3 +262,29 @@ def get_num_actions(branching):
     # add final action
     actions += 1
     return actions
+
+
+def generate_ground_truth_file(env, num_ground_truths=100, save_path=None, file_name="trials", seed=None):
+    """
+    Used for generating ground truth file (json)
+    """
+    if save_path is None:
+        save_path = Path(__file__).parents[0]
+
+    # get all possible ground truths, check size
+    all_ground_truths = list(get_all_possible_ground_truths(env))
+    if len(all_ground_truths) < num_ground_truths:
+        num_ground_truths = len(all_ground_truths)
+        print("Less ground truths possible than specified, saving all ground truths")
+
+    # select random trials
+    rng = np.random.default_rng(seed=seed)
+    stateRewards = rng.choice(all_ground_truths, num_ground_truths, replace=False)
+
+    # save trials in expected order
+    trial_data = [{"trial_id": hash(tuple(stateReward)), "stateRewards": [float(node) for node in list(stateReward)]}
+                  for stateReward in stateRewards]
+    with open(save_path.joinpath(f"{file_name}.json"), "w", encoding="utf-8") as f:
+        json.dump(trial_data, f)
+
+    return trial_data

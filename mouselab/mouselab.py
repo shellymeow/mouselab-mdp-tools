@@ -15,6 +15,7 @@ from mouselab.graph_utils import (
     annotate_mdp_graph,
     graph_from_adjacency_list,
 )
+import networkx as nx
 
 NO_CACHE = False
 if NO_CACHE:
@@ -42,6 +43,7 @@ class MouselabEnv(gym.Env):
         term_belief=True,
         sample_term_reward=False,
         last_action=0,
+        include_last_action : bool = False,
         seed=None,
         mdp_graph_properties={},
     ):
@@ -53,7 +55,7 @@ class MouselabEnv(gym.Env):
                     or function implemented similar to those in mouselab.cost_functions
         :param term_belief: TODO
         :param sample_term_belief: TODO
-        :param last_action: some cost functions depend on the last action,
+        :param include_last_action: some cost functions depend on the last action,
                     this should generally be initialized as the starting node
         :param seed: seed for numpy random number generator
         :param mdp_graph_properties: properties to add to mdp graph,
@@ -62,11 +64,7 @@ class MouselabEnv(gym.Env):
         self.tree = tree
         mdp_graph = graph_from_adjacency_list(self.tree)
         # add properties to mdp_graph for cost function and possible calculating returns
-        mdp_graph = annotate_mdp_graph(mdp_graph, mdp_graph_properties)
-        # add clicked property to the graph
-        self.mdp_graph = add_property_to_graph(
-            mdp_graph, "revealed", {node: False for node in mdp_graph.nodes}
-        )
+        self.mdp_graph = annotate_mdp_graph(mdp_graph, mdp_graph_properties)
 
         self.init = (0, *init[1:])
 
@@ -81,16 +79,16 @@ class MouselabEnv(gym.Env):
 
         if hasattr(cost, "__call__"):
             # reads in all graph attributes and last action
-            self.cost = lambda node: cost(
-                node, last_action=self.last_action, graph=self.mdp_graph
+            self.cost = lambda state, action: cost(
+                state, action, graph=self.mdp_graph
             )
         else:
             # make the cost function return scalar cost for all inputs if not callable
-            self.cost = lambda node: -abs(cost)
+            self.cost = lambda state, action: -abs(cost)
 
-        # in Val's experiments participants must click on node 0 to begin
-        self.last_action = last_action
-        self.mdp_graph.nodes[last_action]["revealed"] = True
+        self.include_last_action = include_last_action
+
+        self.rng = default_rng(seed=seed)
 
         self.rng = default_rng(seed=seed)
 
@@ -104,6 +102,9 @@ class MouselabEnv(gym.Env):
 
         self.initial_states = [self.init]
         self.initial_state_probabilities = [1.0]
+
+        if self.include_last_action:
+            self.initial_states = [(*initial_state, 0) for initial_state in self.initial_states]
 
         self.exact = True  # TODO
 
@@ -126,6 +127,11 @@ class MouselabEnv(gym.Env):
                 self.initial_states, p=self.initial_state_probabilities
             )
         self._state = self.init
+
+        # in Val's experiments participants must click on node 0 to begin
+        if self.include_last_action:
+            self._state = (*self._state, 0)
+
         return self._state
 
     def step(self, action):
@@ -143,11 +149,15 @@ class MouselabEnv(gym.Env):
             reward = 0
             done = False
         else:  # observe a new node
+            reward = self.cost(self._state, action)
             self._state = self._observe(action)
-            reward = self.cost(action)
             done = False
         # update last action
-        self.last_action = action
+        if self.include_last_action and (self._state is not self.term_state):
+            # state is tuple, so need to convert to list to modify last action
+            state_list = list(self._state)
+            # nodes are first len-1 entries, last action is last entry
+            self._state = (*state_list[:-1], action)
         return self._state, reward, done, {}
 
     def _term_reward(self):
@@ -167,7 +177,6 @@ class MouselabEnv(gym.Env):
             result = self.ground_truth[action]
         s = list(self._state)
         s[action] = result
-        self.mdp_graph.nodes[action]["revealed"] = True
         return tuple(s)
 
     def actions(self, state):
@@ -189,11 +198,17 @@ class MouselabEnv(gym.Env):
         """
         if action == self.term_action:
             yield (1, self.term_state, self.expected_term_reward(state))
+        elif self.include_last_action:
+            for r, p in state[action]:
+                s1 = list(state)
+                s1[action] = r
+                s1[-1] = action
+                yield (p, tuple(s1), self.cost(state, action))
         else:
             for r, p in state[action]:
                 s1 = list(state)
                 s1[action] = r
-                yield (p, tuple(s1), self.cost(action))
+                yield (p, tuple(s1), self.cost(state, action))
 
     def action_features(self, action, state=None):
         state = state if state is not None else self._state
@@ -204,7 +219,7 @@ class MouselabEnv(gym.Env):
 
         return np.array(
             [
-                self.cost(action),
+                self.cost(state, action),
                 self.myopic_voc(action, state),
                 self.vpi_action(action, state),
                 self.vpi(state),
@@ -462,9 +477,9 @@ class MouselabEnv(gym.Env):
             raise ValueError("Symmetric can only be used if reward input is depth.")
 
     def _render(self, mode="notebook", close=False):
+    def _render(self, mode="notebook", close=False, use_networkx=False):
         if close:
             return
-        from graphviz import Digraph
 
         def color(val):
             if val > 0:
@@ -472,16 +487,29 @@ class MouselabEnv(gym.Env):
             else:
                 return "#F7BDC4"
 
-        dot = Digraph()
-        for x, ys in enumerate(self.tree):
-            r = self._state[x]
-            observed = not hasattr(self._state[x], "sample")
-            c = color(r) if observed else "grey"
-            label = str(round(r, 2)) if observed else str(x)
-            dot.node(str(x), label=label, style="filled", color=c)
-            for y in ys:
-                dot.edge(str(x), str(y))
-        return dot
+        if use_networkx == True:
+            assert ["layout" in self.mdp_graph.nodes[node] for node in
+                    self.mdp_graph.nodes(data=False)], "Must provide layout information for this render type"
+            # label should either be revealed value, or empty if still unrevealed
+            labels = {node: (str(self._state[node]) if not hasattr(self._state[node], 'sample') else '') for node in
+                      self.mdp_graph.nodes(data=False)}
+            layout = {node: self.mdp_graph.nodes[node]["layout"] for node in self.mdp_graph.nodes(data=False)}
+            node_color = [("#DEDEDE" if labels[node] == "" else color(float(labels[node]))) for node in range(len(self.mdp_graph.nodes(data=False)))]
+            plot = nx.draw(self.mdp_graph, pos=layout, labels=labels, node_color=node_color, node_size=2000, arrowsize=30)
+            return plot
+        else:
+            from graphviz import Digraph
+    
+            dot = Digraph()
+            for x, ys in enumerate(self.tree):
+                r = self._state[x]
+                observed = not hasattr(self._state[x], "sample")
+                c = color(r) if observed else "grey"
+                label = str(round(r, 2)) if observed else str(x)
+                dot.node(str(x), label=label, style="filled", color=c)
+                for y in ys:
+                    dot.edge(str(x), str(y))
+            return dot
 
     def to_obs_tree(self, state, node, obs=(), sort=True):
         maybe_sort = sorted if sort else lambda x: x

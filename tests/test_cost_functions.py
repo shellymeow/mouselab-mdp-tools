@@ -2,7 +2,7 @@ import itertools
 
 import pytest
 
-from mouselab.cost_functions import distance_graph_cost, linear_depth, side_cost
+from mouselab.cost_functions import distance_graph_cost, linear_depth, side_cost, forward_search_cost
 from mouselab.distributions import Categorical
 from mouselab.envs.registry import register, registry
 from mouselab.graph_utils import get_structure_properties
@@ -39,19 +39,19 @@ env_params = [
             },
         },
         "structure": {
-            "layout": {
+            "layout" : {
                 "0": [0, 0],
                 "1": [0, -1],
                 "2": [1, -1],
-                "3": [-1, -1],
-                "4": [2, -1],
+                "3": [2, -1],
+                "4": [-1, -1],
                 "5": [-2, -1],
             },
             "initial": "0",
-            "graph": {
+            "graph"  : {
                 "0": {"up": [0, "1"]},
-                "1": {"right": [0, "2"], "left": [0, "3"]},
-                "2": {"right": [0, "4"]},
+                "1": {"right": [0, "2"], "left": [0, "4"]},
+                "2": {"right": [0, "3"]},
                 "3": {"left": [0, "5"]},
                 "4": {},
                 "5": {},
@@ -166,7 +166,7 @@ def test_depth_cost(depth_cost_test_cases):
 
     cost_function_result = {}
     for node in depth_result.keys():
-        cost_function_result[node] = env.cost(node)
+        cost_function_result[node] = env.cost(env._state, node)
 
     assert depth_result == cost_function_result
 
@@ -174,11 +174,11 @@ def test_depth_cost(depth_cost_test_cases):
 distances = {
     "small_test_case": {(0, 1): 1, (2, 3): 2, (3, 2): 2, (0, 3): 2 ** (1 / 2)},
     "medium_test_case": {
-        (4, 5): 4,
-        (5, 4): 4,
-        (2, 4): 1,
-        (4, 2): 1,
-        (0, 3): 2 ** (1 / 2),
+        (3, 5): 4,
+        (5, 3): 4,
+        (2, 3): 1,
+        (3, 2): 1,
+        (0, 4): 2 ** (1 / 2),
     },
     "high_increasing": {
         (0, 1): 1,
@@ -223,11 +223,12 @@ def test_distance_cost(distance_cost_test_cases):
         experiment_setting,
         mdp_graph_properties=mdp_graph_properties,
         cost=cost_function,
+        include_last_action=True,
     )
 
     if states[0] > 0:
         env.step(states[0])
-    assert env.cost(states[1]) == -cost_output
+    assert env.cost(env._state, states[1]) == -cost_output
     # can only step if next action is greater than 0
     # we have a test case where it is 0 to check symmetry
     if states[1] > 0:
@@ -267,6 +268,63 @@ def test_side_cost(experiment_setting, mdp_graph_properties, side_dict):
 
     constructed_side_costs = {}
     for node in side_dict.keys():
-        constructed_side_costs[node] = env.cost(node)
+        constructed_side_costs[node] = env.cost(env._state, node)
 
     assert constructed_side_costs == side_dict
+
+
+forward_test_numbers = {
+    "small_test_case": {(0, 1): -2, (2, 3): -2, (3, 2): -2, (0, 3): -2, (1, 2): -1},
+    "medium_test_case": {
+        (4, 5): -1,
+        (5, 4): -2,
+        (2, 4): -2,
+        (4, 2): -2,
+        (0, 3): -2,
+    },
+    "high_increasing": {
+        (0, 1): -2,
+        (0, 2): -2,
+        (0, 3): -2,
+        (2, 3): -1,
+        (3, 2): -2,
+        (8, 3): -2,
+        (3, 8): -2,
+        (4, 8): -2,
+        (8, 4): -2,
+    },
+}
+
+forward_test_data = []
+for env_param in env_params:
+    for states, result in forward_test_numbers[env_param["env"]["name"]].items():
+        forward_test_data.append([env_param, states, result])
+
+@pytest.fixture(params=forward_test_data)
+def forward_cost_test_cases(request):
+    if request.param[0]["env"]["name"] not in registry.envs:
+        register(**request.param[0]["env"])
+
+    yield request.param[0]["env"]["name"], get_structure_properties(
+        request.param[0]["structure"]
+    ), request.param[1], request.param[2]
+
+
+def test_forward_cost(forward_cost_test_cases):
+    (
+        experiment_setting,
+        mdp_graph_properties,
+        states,
+        cost_output,
+    ) = forward_cost_test_cases
+
+    cost_function = forward_search_cost(added_cost=-1, inspection_cost=2, include_start=False)
+    env = MouselabEnv.new_symmetric_registered(
+        experiment_setting,
+        mdp_graph_properties=mdp_graph_properties,
+        cost=cost_function,
+    )
+
+    if states[0] > 0:
+        env.step(states[0])
+    assert env.cost(env._state, states[1]) == cost_output
