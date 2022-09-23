@@ -35,17 +35,16 @@ class MouselabEnv(gym.Env):
     term_state = "__term_state__"
 
     def __init__(
-        self,
-        tree,
-        init,
-        ground_truth=None,
-        cost=0,
-        term_belief=True,
-        sample_term_reward=False,
-        last_action=0,
-        include_last_action : bool = False,
-        seed=None,
-        mdp_graph_properties={},
+            self,
+            tree,
+            init,
+            ground_truth=None,
+            cost=0,
+            term_belief=True,
+            sample_term_reward=False,
+            include_last_action: bool = False,
+            seed=None,
+            mdp_graph_properties={},
     ):
         """
         :param tree: adjacency list
@@ -87,8 +86,6 @@ class MouselabEnv(gym.Env):
             self.cost = lambda state, action: -abs(cost)
 
         self.include_last_action = include_last_action
-
-        self.rng = default_rng(seed=seed)
 
         self.rng = default_rng(seed=seed)
 
@@ -476,7 +473,6 @@ class MouselabEnv(gym.Env):
         else:
             raise ValueError("Symmetric can only be used if reward input is depth.")
 
-    def _render(self, mode="notebook", close=False):
     def _render(self, mode="notebook", close=False, use_networkx=False):
         if close:
             return
@@ -499,7 +495,7 @@ class MouselabEnv(gym.Env):
             return plot
         else:
             from graphviz import Digraph
-    
+
             dot = Digraph()
             for x, ys in enumerate(self.tree):
                 r = self._state[x]
