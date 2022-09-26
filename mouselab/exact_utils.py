@@ -42,7 +42,7 @@ def timed_solve_env(
                 print("optimal -> {:.2f} in {:.3f} sec".format(optimal_value, t.elapsed))
 
             if save_q:
-                info["q_dictionary"] = construct_q_dictionary(Q, env, ground_truths=ground_truths, verbose=verbose, hash_key=hash_key, dedup_by_hash=dedup_by_hash)
+                info["q_dictionary"] = construct_q_dictionary(Q, env, ground_truths=ground_truths, verbose=verbose, hash_key=hash_key, dedup_by_hash=dedup_by_hash, timer=t)
 
         return None, None, None, info
     else:
@@ -65,15 +65,18 @@ def timed_solve_env(
                 if dedup_by_hash:
                     hash_key = lambda sa_pair: hash_tree(env, *sa_pair)
                 # In some cases, it is too costly to save whole Q function
-                info["q_dictionary"] = construct_q_dictionary(Q, env, ground_truths=ground_truths, verbose=verbose, hash_key=hash_key, dedup_by_hash=dedup_by_hash)
-
+                info["q_dictionary"] = construct_q_dictionary(Q, env, ground_truths=ground_truths, verbose=verbose, hash_key=hash_key, dedup_by_hash=dedup_by_hash, timer=t)
+                if verbose:
+                    print(f"Finished constructing q dictionary, time elapsed: {t.elapsed}")
         return Q, V, pi, info
 
 
-def construct_q_dictionary(Q, env, ground_truths=None, verbose=False, hash_key=None, dedup_by_hash=True):
+def construct_q_dictionary(Q, env, ground_truths=None, verbose=False, hash_key=None, dedup_by_hash=True, timer=None):
     """
     Construct q dictionary for env, given environment is solved
     """
+    if verbose:
+        print(f"Getting (s,a) to save, time elapsed: {timer.elapsed}")
     if ground_truths is None:
         sa = get_all_possible_sa_pairs_for_env(env, verbose=verbose)
     else:
@@ -86,8 +89,12 @@ def construct_q_dictionary(Q, env, ground_truths=None, verbose=False, hash_key=N
             sa = add_extended_state_to_sa_pairs(sa)
 
     if dedup_by_hash and hash_key:
+        if verbose:
+            print(f"Deduping (s,a) to save, time elapsed: {timer.elapsed}")
         sa = unique(sa, key=lambda sa_pair: hash_key(sa_pair))
 
+    if verbose:
+        print(f"Constructing q dictionary with these (s,a) pairs, time elapsed: {timer.elapsed}")
     if isinstance(Q, dict):
         if hash_key is None:
             hash_key = lambda sa_pair: sa_pair
