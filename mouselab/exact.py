@@ -1,5 +1,4 @@
 from toolz import memoize, unique
-from scipy.spatial import distance
 from mouselab.env_utils import get_all_possible_ground_truths
 
 def sort_tree(env, state):
@@ -20,17 +19,17 @@ def sort_tree(env, state):
     return tuple(state)
 
 
-def hash_tree(env, state, action=None):
+def hash_tree(env, state, action=None, last_action_info=None):
     """Breaks symmetry between belief states."""
     if state == "__term_state__":
         return hash(state)
 
     if env.include_last_action and action is not env.term_action:
-        node_last_clicks = [distance.euclidean(
-            env.mdp_graph.nodes[action_idx]["layout"], env.mdp_graph.nodes[state[-1]]["layout"]
-        ) for action_idx, action in enumerate(state[:-1])]
-        # node_last_clicks[state[-1]] = 1
-
+        if last_action_info is None:
+            node_last_clicks = [0 for action_idx, action in enumerate(state[:-1])]
+            node_last_clicks[state[-1]] = 1
+        else:
+            node_last_clicks = last_action_info[state[-1]]
         state = [*zip(state[:-1],node_last_clicks)]
 
     if action is not None and action is not env.term_action:
@@ -48,7 +47,7 @@ def hash_tree(env, state, action=None):
 
     return rec(0)
 
-def solve(env, hash_state=None, actions=None, blinkered=None):
+def solve(env, hash_state=None, actions=None, blinkered=None, last_action_info=None):
     """Returns Q, V, pi, and computation data for an mdp environment."""
     info = {"q": 0, "v": 0}  # track number of times each function is called
 
@@ -57,7 +56,7 @@ def solve(env, hash_state=None, actions=None, blinkered=None):
             hash_state = lambda state: tuple(sorted(state))
         elif hasattr(env, "tree"):
             # hash_state = lambda state: sort_tree(env, state)
-            hash_state = lambda state: hash_tree(env, state)
+            hash_state = lambda state: hash_tree(env, state, last_action_info=last_action_info)
 
     # for tests with no hashing
     if hash_state == "test":
@@ -166,7 +165,7 @@ def get_previous_sa_pairs(env, sa_pair):
                         [(tuple(curr_state), env.term_action)])
     return previous_sa_pairs
 
-def backward_solve(env, hash_key=None, verbose=True):
+def backward_solve(env, hash_key=None, verbose=True, last_action_info=None):
     """
     Rather than using memoization, we go backwards through the (state, action) pairs:
         First through terminal action
@@ -174,7 +173,7 @@ def backward_solve(env, hash_key=None, verbose=True):
     """
     if hash_key is None:
         if hasattr(env, "tree"):
-            hash_key = lambda sa_pair: hash_tree(env, *sa_pair)
+            hash_key = lambda sa_pair: hash_tree(env, *sa_pair, last_action_info=last_action_info)
 
     # for tests with no hashing
     if hash_key == "test":
