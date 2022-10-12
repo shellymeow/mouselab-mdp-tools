@@ -27,8 +27,8 @@ ZERO = PointMass(0)
 
 
 class MetaControllerMouselab(MouselabEnv):
-    def __init__(self, simple_cost=True, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, tree, env, simple_cost, **kwargs):
+        super().__init__(tree, env, **kwargs)
 
         self.all_paths_ = tuple(tuple(n) for n in self.all_paths())
         _, self.operations = compute_operations(self.tree, [])
@@ -130,7 +130,7 @@ class MetaControllerMouselab(MouselabEnv):
 
         if self.simple_cost:
             return np.array([
-                self.cost(action),
+                self.cost(state, action),
                 self.myopic_voc(action, state),
                 self.vpi_action(action, state),
                 self.vpi(state),
@@ -176,20 +176,22 @@ class MetaControllerMouselab(MouselabEnv):
             subtree[i] = tuple(np.unique(sub))
         return subtree
 
-    def action_cost(self, action):
+    def action_cost(self, action, state=None):
         """Returns the estimated number of clicks needed for action features computation in BMPS
 
         Arguments:
             action: low level action for computation
+            state: low state for computation
         """
+        state = state if state is not None else self._state
 
         paths = self.path_to(action)
         flat_paths = [node for path in paths for node in path]
         obs = (*self.subtree[action], *flat_paths)
         obs = np.unique(obs)
-        vpi_action_nodes = (len(obs) - 1) * self.cost(action)
-        vpi_nodes = (len(self.subtree[0]) - 1) * self.cost(action)
-        myopic_nodes = self.cost(action)
+        vpi_action_nodes = (len(obs) - 1) * self.cost(state, action)
+        vpi_nodes = (len(self.subtree[0]) - 1) * self.cost(state, action)
+        myopic_nodes = self.cost(state, action)
         return [myopic_nodes, vpi_action_nodes, vpi_nodes]
 
     def to_obs_tree(self, state, node, obs=()):
