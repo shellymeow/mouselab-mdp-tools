@@ -11,7 +11,7 @@ features: # previously w1*features[1] + w2*features[3] + w3*features[2] + w4*fea
   vpi_action: # previously w3
     type: 'continuous'
     domain: (-1,1)
-  vpi_action_nodes: # previously w0
+  vpi_action_nodes_action_cost: # previously w0
     type: 'continuous'
     domain: (0,1)
 constraints:
