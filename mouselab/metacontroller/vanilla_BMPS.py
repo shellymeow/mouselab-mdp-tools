@@ -8,6 +8,12 @@ import time
 from numpy.random import default_rng
 from mouselab.policies import LiederPolicy
 from mouselab.agents import Agent
+from pathlib import Path
+
+import yaml
+
+from mouselab.mouselab import MouselabEnv
+from mouselab.cost_functions import linear_depth
 
 def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_belief=False, features=None, verbose=False):
     """[summary]
@@ -27,12 +33,36 @@ def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_bel
         [[int]]: Actions of each episode
     """
 
-    w1 = W[:,0]
-    w2 = W[:,1]
-    w4 = W[:,2]
-    if cost_function == "Actionweight" or cost_function == "Independentweight":
-        w0 = W[:,3]
-    w3 = 1 - w1 - w2
+    # w1 = W[:,0] . myopic_voc
+    # w2 = W[:,1] . vpi
+    # w4 = W[:,2] . action_cost, cost
+    # if cost_function == "Actionweight" or cost_function == "Independentweight":
+    #     w0 = W[:,3] . vpi_action_nodes
+    # w3 = 1 - w1 - w2
+    #
+    # if cost_function == "Basic":
+    #     simple_cost = True
+    # else:
+    #     simple_cost = False
+    #
+    # num_nodes = len(tree) - 1
+    #
+    # def voc_estimate(x):
+    #     features = env.action_features(x)
+    #     if cost_function == "Basic":
+    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*features[0]
+    #     elif cost_function == "Hierarchical":
+    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*(w1*features[0][0] + w3*features[0][1] + w2*features[0][2])
+    #     elif cost_function == "Actionweight":
+    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*(features[0][0] + w0*(features[0][1]))
+    #     elif cost_function == "Novpi":
+    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*(w1*features[0][0] + w3*(features[0][1]/num_nodes))
+    #     elif cost_function == "Proportional":
+    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*(features[0][0] + (features[0][1]/num_nodes))
+    #     elif cost_function == "Independentweight":
+    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*features[0][0] + w0*features[0][1]
+    #     else:
+    #         assert False
 
     agent = Agent()
 
@@ -144,29 +174,33 @@ def eval_bmps_weights(W, num_episodes, tree, init, cost, seed=None, term_belief=
         print("Average reward:", np.mean(rewards))
     return rewards, actions
 
+def load_feature_file(filename, env, path=None):
+    if path is None:
+        path = Path(__file__).parents[0]
+
+    with open(path / f"bmps_features/{filename}.yaml", "rb") as f:
+        feature_inputs = yaml.safe_load(f)
+
+    optimization_kwargs = {
+        "space" : [{"name": feature, **details} for feature, details in feature_inputs["features"].items()],
+        "constraints": [{"name": feature, **details} for feature, details in feature_inputs["constraints"].items()]}
+    features = list(feature_inputs["features"].keys())
+
+    optimization_kwargs["space"] = [{key: (eval(val) if key == "domain" else val) for key, val in
+                                     curr_param.items()} for curr_param in optimization_kwargs["space"]]
+
+    return optimization_kwargs, features
+
+
 if __name__ == "__main__":
     BO_RESTARTS = 2
     BO_STEPS = 3
     EVAL_EPISODES = 20
 
-    import yaml
-
-    with open("bmps_features/Basic.yaml", "rb") as f:
-        r = yaml.safe_load(f)
-
-    optimization_kwargs = {
-        "space" : [{"name": feature, **details} for feature, details in r["features"].items()],
-        "constraints": [{"name": feature, **details} for feature, details in r["constraints"].items()]}
-    features = list(r["features"].keys())
-
-    from mouselab.mouselab import MouselabEnv
-    from mouselab.cost_functions import linear_depth
     env = MouselabEnv.new_symmetric_registered("high_increasing")
     cost = linear_depth(depth_cost_weight=5.0, static_cost_weight=2.0)
 
-    tree = env.tree
-    optimization_kwargs["space"] = [{key: (eval(val) if key == "domain" else val) for key, val in
-                                     curr_param.items()} for curr_param in optimization_kwargs["space"]]
+    optimization_kwargs, features = load_feature_file("Basic", env)
 
     W_vanilla, time_vanilla = optimize_bmps_weights(tree=env.tree, init=env.init, cost=cost, seed=91, samples=BO_RESTARTS,
                                        iterations=BO_STEPS, num_episodes=EVAL_EPISODES, features=features, optimization_kwargs=optimization_kwargs,  verbose=False)
