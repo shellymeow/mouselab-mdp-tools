@@ -5,8 +5,9 @@ from mouselab.metacontroller.mouselab_env import MetaControllerMouselab
 import numpy as np
 import GPyOpt
 import time
+from numpy.random import default_rng
 
-def original_mouselab(W, tree, init, cost ,num_episodes=100, SEED=1000, term_belief=False, exact_seed=False, cost_function="Basic"):
+def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_belief=False, cost_function="Basic"):
     """[summary]
 
     Args:
@@ -15,7 +16,7 @@ def original_mouselab(W, tree, init, cost ,num_episodes=100, SEED=1000, term_bel
         init ([int]): MDP reward distribution per node
         cost (callable): Cost of clicking on a node.
         num_episodes (int, optional): Number of episodes to evaluate the MDP on. Defaults to 100.
-        SEED (int, optional): Seed to fix random MDP initialization.
+        seed (int, optional): Seed to fix random MDP initialization.
         term_belief (bool, optional): If true the expected reward instead of the real reward is used. Defaults to False.
 
     Returns:
@@ -57,11 +58,7 @@ def original_mouselab(W, tree, init, cost ,num_episodes=100, SEED=1000, term_bel
     rewards = []
     actions = []
     for i in range(num_episodes):
-        if exact_seed:
-            np.random.seed(SEED + i)
-        else:
-            np.random.seed(1000*SEED + i)
-        env = MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, simple_cost=simple_cost)
+        env = MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, simple_cost=simple_cost, seed=seed)
         exp_return = 0
         actions_tmp = []
         while True:
@@ -79,7 +76,7 @@ def original_mouselab(W, tree, init, cost ,num_episodes=100, SEED=1000, term_bel
     return rewards, actions
 
 
-def optimize(tree, init, cost, evaluated_episodes=100, samples=30, iterations=50, SEED=0, term_belief=True, exact_seed=False, cost_function="Basic", verbose=False):
+def optimize(tree, init, cost, evaluated_episodes=100, samples=30, iterations=50, seed=None, optimization_seed=123456, term_belief=True, cost_function="Basic", verbose=False):
     """Optimizes the weights for BMPS using Bayesian optimization.
 
     Args:
@@ -88,7 +85,8 @@ def optimize(tree, init, cost, evaluated_episodes=100, samples=30, iterations=50
         cost (callable): Cost of computing a node.
         samples (int, optional): Number of initial random guesses before optimization. Defaults to 30.
         iterations (int, optional): Number of optimization steps. Defaults to 50.
-        SEED (int, optional): Seed to fix random MDP initialization.
+        seed (int, optional): Seed to fix random MDP initialization.
+        optimization_seed (int, optional): Seed for optimization
         term_belief (bool, optional): If true the expected reward instead of the real reward is used. Defaults to True.
     """
 
@@ -130,12 +128,7 @@ def optimize(tree, init, cost, evaluated_episodes=100, samples=30, iterations=50
 
         cumreturn = 0
         for i in range(num_episodes):
-            #TODO
-            if exact_seed:
-                np.random.seed(SEED + i)
-            else:
-                np.random.seed(1000*SEED + i)
-            env = MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, simple_cost=simple_cost)
+            env = MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, simple_cost=simple_cost, seed=seed)
             exp_return = 0
             actions_tmp = []
             while True:
@@ -153,7 +146,10 @@ def optimize(tree, init, cost, evaluated_episodes=100, samples=30, iterations=50
 
     if verbose:
         print(cost_function)
-    np.random.seed(123456)
+
+    # not best practice, but seems this optimization library is past support:
+    # https://github.com/SheffieldML/GPyOpt/issues/337
+    np.random.seed(optimization_seed)
 
     if cost_function == "Actionweight" or cost_function == "Independentweight":
         space = [{'name': 'w1', 'type': 'continuous', 'domain': (0,1)},
@@ -208,7 +204,7 @@ def optimize(tree, init, cost, evaluated_episodes=100, samples=30, iterations=50
 
     return W_low, train_toc-train_tic
 
-def eval(W_low, n, tree, init, cost, SEED=1000, term_belief=False, verbose=True, exact_seed=False, cost_function="Basic"):
+def eval(W_low, n, tree, init, cost, seed=None, term_belief=False, verbose=True, cost_function="Basic"):
     """Evaluates the BMPS weights and logs the execution time.
 
     Args:
@@ -217,7 +213,7 @@ def eval(W_low, n, tree, init, cost, SEED=1000, term_belief=False, verbose=True,
         tree ([int]): MDP structure
         init ([int]): MDP reward distribution per node
         cost (callable): Cost of computing a non goal node.
-        SEED (int, optional): Seed to fix random MDP initialization. Defaults to 1000.
+        seed (int, optional): Seed to fix random MDP initialization. Defaults to 1000.
 
     Returns:
         [int]: Reward of each episode
@@ -225,7 +221,7 @@ def eval(W_low, n, tree, init, cost, SEED=1000, term_belief=False, verbose=True,
     """
 
     eval_tic = time.time()
-    rewards, actions = original_mouselab(W=W_low, tree=tree, init=init, cost=cost, SEED=SEED, num_episodes=n, term_belief=term_belief, exact_seed=exact_seed, cost_function=cost_function)
+    rewards, actions = original_mouselab(W=W_low, tree=tree, init=init, cost=cost, seed=seed, num_episodes=n, term_belief=term_belief, cost_function=cost_function)
     if verbose:
         print("Seconds:", time.time() - eval_tic)
         print("Average reward:", np.mean(rewards))
@@ -241,7 +237,7 @@ if __name__ == "__main__":
     env = MouselabEnv.new_symmetric_registered("high_increasing")
     cost = linear_depth(depth_cost_weight=5.0, static_cost_weight=2.0)
 
-    W_vanilla, time_vanilla = optimize(tree=env.tree, init=env.init, cost=cost, SEED=91, samples=BO_RESTARTS,
+    W_vanilla, time_vanilla = optimize(tree=env.tree, init=env.init, cost=cost, seed=91, samples=BO_RESTARTS,
                                        iterations=BO_STEPS, evaluated_episodes=EVAL_EPISODES, cost_function="Basic", verbose=False)
-    rewards_vanilla, actions_vanilla = eval(W_vanilla, n=500, tree=env.tree, init=env.init, cost=cost, SEED=91,
-                                            cost_function="Basic", exact_seed=True)
+    rewards_vanilla, actions_vanilla = eval(W_vanilla, n=500, tree=env.tree, init=env.init, cost=cost, seed=91,
+                                            cost_function="Basic")
