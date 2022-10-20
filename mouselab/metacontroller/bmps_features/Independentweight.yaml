@@ -1,0 +1,21 @@
+features:
+  myopic_voc:
+    type: 'continuous'
+    domain: (0,1)
+  vpi:
+    type: 'continuous'
+    domain: (0,1)
+  myopic_action_cost:
+    type: 'continuous'
+    domain: (1,len(env.tree)-1)
+  vpi_action:
+    type: 'continuous'
+    domain: (-1,1)
+  vpi_action_nodes:
+    type: 'continuous'
+    domain: (0,1)
+constraints:
+  vpi_sum: #  myopic_voc + vpi = 1
+    constraint: 'x[:,0] + x[:,1] - 1'
+  vpi_action: # vpi_action = 1 - myopic_voc - vpi
+    constraint : 'x[:,0] + x[:,1] + x[:,3] - 1'
