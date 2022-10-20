@@ -192,7 +192,7 @@ def optimize(tree, init, cost, evaluated_episodes=100, samples=30, iterations=50
     max_iter  = iterations
     time_start = time.time()
     train_tic = time_start
-    bo.run_optimization(max_iter = max_iter, max_time = max_time, eps = tolerance, verbosity=True)
+    bo.run_optimization(max_iter = max_iter, max_time = max_time, eps = tolerance, verbosity=verbose)
 
     W_low = np.array([bo.x_opt])
     train_toc = time.time()
