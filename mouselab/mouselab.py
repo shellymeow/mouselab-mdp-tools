@@ -11,7 +11,6 @@ from numpy.random import default_rng
 from mouselab.distributions import PointMass, cmax, expectation, sample, smax
 from mouselab.envs.registry import registry
 from mouselab.graph_utils import (
-    add_property_to_graph,
     annotate_mdp_graph,
     graph_from_adjacency_list,
 )
