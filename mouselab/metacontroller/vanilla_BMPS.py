@@ -6,8 +6,10 @@ import numpy as np
 import GPyOpt
 import time
 from numpy.random import default_rng
+from mouselab.policies import LiederPolicy
+from mouselab.agents import Agent
 
-def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_belief=False, cost_function="Basic"):
+def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_belief=False, features=None, verbose=False):
     """[summary]
 
     Args:
@@ -18,6 +20,7 @@ def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_bel
         num_episodes (int, optional): Number of episodes to evaluate the MDP on. Defaults to 100.
         seed (int, optional): Seed to fix random MDP initialization.
         term_belief (bool, optional): If true the expected reward instead of the real reward is used. Defaults to False.
+        features (list, str):
 
     Returns:
         [int]: Reward of each episode
@@ -31,52 +34,19 @@ def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_bel
         w0 = W[:,3]
     w3 = 1 - w1 - w2
 
-    if cost_function == "Basic":
-        simple_cost = True
-    else:
-        simple_cost = False
+    agent = Agent()
 
-    num_nodes = len(tree) - 1
+    env = [MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, features=features, seed=seed) for env_idx in range(num_episodes)]
+    agent.register(env)
 
-    def voc_estimate(x):
-        features = env.action_features(x)
-        if cost_function == "Basic":
-            return w1*features[1] + w2*features[3] + w3*features[2] + w4*features[0]
-        elif cost_function == "Hierarchical":
-            return w1*features[1] + w2*features[3] + w3*features[2] + w4*(w1*features[0][0] + w3*features[0][1] + w2*features[0][2])
-        elif cost_function == "Actionweight":
-            return w1*features[1] + w2*features[3] + w3*features[2] + w4*(features[0][0] + w0*(features[0][1]))
-        elif cost_function == "Novpi":
-            return w1*features[1] + w2*features[3] + w3*features[2] + w4*(w1*features[0][0] + w3*(features[0][1]/num_nodes))
-        elif cost_function == "Proportional":
-            return w1*features[1] + w2*features[3] + w3*features[2] + w4*(features[0][0] + (features[0][1]/num_nodes))
-        elif cost_function == "Independentweight":
-            return w1*features[1] + w2*features[3] + w3*features[2] + w4*features[0][0] + w0*features[0][1]
-        else:
-            assert False
+    agent.register(LiederPolicy(theta=W.flatten()))
 
-    rewards = []
-    actions = []
-    for i in range(num_episodes):
-        env = MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, simple_cost=simple_cost, seed=seed)
-        exp_return = 0
-        actions_tmp = []
-        while True:
-            possible_actions = list(env.actions(env._state))
-            action_taken = max(possible_actions, key = voc_estimate)
-            _, rew, done, _=env._step(action_taken)
-            exp_return+=rew
-            if done:
-                break
-            else:
-                actions_tmp.append(action_taken)
-        rewards.append(exp_return)
-        actions.append(actions_tmp)
-        del env, possible_actions
-    return rewards, actions
+    trace = agent.run_many(pbar=verbose)
+    return trace["return"], trace["actions"]
 
 
-def optimize(tree, init, cost, evaluated_episodes=100, samples=30, iterations=50, seed=None, optimization_seed=123456, term_belief=True, cost_function="Basic", verbose=False):
+def optimize_bmps_weights(tree, init, cost, num_episodes=100, samples=30, iterations=50, seed=None, optimization_seed=123456, term_belief=True, features=None, optimization_kwargs=None,
+             verbose=False):
     """Optimizes the weights for BMPS using Bayesian optimization.
 
     Args:
@@ -91,79 +61,25 @@ def optimize(tree, init, cost, evaluated_episodes=100, samples=30, iterations=50
     """
 
     def blackbox_original_mouselab(W):
-        w1 = W[:,0]
-        w2 = W[:,1]
-        w4 = W[:,2]
-        if cost_function == "Actionweight" or cost_function == "Independentweight":
-            w0 = W[:,3]
-        w3 = 1 - w1 - w2
+        agent = Agent()
 
-        if cost_function == "Basic":
-            simple_cost = True
-        else:
-            simple_cost = False
+        env = [MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, features=features, seed=seed) for
+               env_idx in range(num_episodes)]
+        agent.register(env)
 
-        num_episodes = evaluated_episodes
+        agent.register(LiederPolicy(theta=W.flatten()))
+
+        trace = agent.run_many(pbar=verbose)
+
         if verbose:
-            print("Weights", W)
-
-        num_nodes = len(tree) - 1
-
-        def voc_estimate(x):
-            features = env.action_features(x)
-            if cost_function == "Basic":
-                return w1*features[1] + w2*features[3] + w3*features[2] + w4*features[0]
-            elif cost_function == "Hierarchical":
-                return w1*features[1] + w2*features[3] + w3*features[2] + w4*(w1*features[0][0] + w3*features[0][1] + w2*features[0][2])
-            elif cost_function == "Actionweight":
-                return w1*features[1] + w2*features[3] + w3*features[2] + w4*(features[0][0] + w0*(features[0][1]))
-            elif cost_function == "Novpi":
-                return w1*features[1] + w2*features[3] + w3*features[2] + w4*(w1*features[0][0] + w3*(features[0][1]/num_nodes))
-            elif cost_function == "Proportional":
-                return w1*features[1] + w2*features[3] + w3*features[2] + w4*(features[0][0] + (features[0][1]/num_nodes))
-            elif cost_function == "Independentweight":
-                return w1*features[1] + w2*features[3] + w3*features[2] + w4*features[0][0] + w0*features[0][1]
-            else:
-                assert False
-
-        cumreturn = 0
-        for i in range(num_episodes):
-            env = MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, simple_cost=simple_cost, seed=seed)
-            exp_return = 0
-            actions_tmp = []
-            while True:
-                possible_actions = list(env.actions(env._state))
-                action_taken = max(possible_actions, key = voc_estimate)
-                _, rew, done, _=env._step(action_taken)
-                exp_return+=rew
-                if done:
-                    break
-            cumreturn += exp_return
-            del env
-        if verbose:
-            print("Return", cumreturn/num_episodes)
-        return - (cumreturn/num_episodes)
-
-    if verbose:
-        print(cost_function)
+            print("Return", np.sum(trace["return"])/num_episodes)
+        return - np.sum(trace["return"])/num_episodes
 
     # not best practice, but seems this optimization library is past support:
     # https://github.com/SheffieldML/GPyOpt/issues/337
     np.random.seed(optimization_seed)
 
-    if cost_function == "Actionweight" or cost_function == "Independentweight":
-        space = [{'name': 'w1', 'type': 'continuous', 'domain': (0,1)},
-            {'name': 'w2', 'type': 'continuous', 'domain': (0,1)},
-            {'name': 'w4', 'type': 'continuous', 'domain': (1,len(tree)-1)},
-            {'name': 'w0', 'type': 'continuous', 'domain': (0,1)}]
-    else:
-        space = [{'name': 'w1', 'type': 'continuous', 'domain': (0,1)},
-            {'name': 'w2', 'type': 'continuous', 'domain': (0,1)},
-            {'name': 'w4', 'type': 'continuous', 'domain': (1,len(tree)-1)}]
-
-    constraints = [{'name': 'part_1', 'constraint': 'x[:,0] + x[:,1] - 1'}]
-
-    feasible_region = GPyOpt.Design_space(space = space, constraints = constraints)
+    feasible_region = GPyOpt.Design_space(**optimization_kwargs)
 
     initial_design = GPyOpt.experiment_design.initial_design('random', feasible_region, samples)
     # --- CHOOSE the objective
@@ -204,12 +120,12 @@ def optimize(tree, init, cost, evaluated_episodes=100, samples=30, iterations=50
 
     return W_low, train_toc-train_tic
 
-def eval(W, n, tree, init, cost, seed=None, term_belief=False, verbose=True, cost_function="Basic"):
+def eval_bmps_weights(W, num_episodes, tree, init, cost, seed=None, term_belief=False, verbose=True, features=None):
     """Evaluates the BMPS weights and logs the execution time.
 
     Args:
         W (np.array): BMPS weights
-        n (int): Number of episodes for evaluation.
+        num_episodes (int): Number of episodes for evaluation.
         tree ([int]): MDP structure
         init ([int]): MDP reward distribution per node
         cost (callable): Cost of computing a non goal node.
@@ -222,23 +138,39 @@ def eval(W, n, tree, init, cost, seed=None, term_belief=False, verbose=True, cos
 
     if verbose:
         eval_tic = time.time()
-    rewards, actions = original_mouselab(W=W, tree=tree, init=init, cost=cost, seed=seed, num_episodes=n, term_belief=term_belief, cost_function=cost_function)
+    rewards, actions = original_mouselab(W=W, tree=tree, init=init, cost=cost, seed=seed, num_episodes=num_episodes, term_belief=term_belief, features=features, verbose=verbose)
     if verbose:
         print("Seconds:", time.time() - eval_tic)
         print("Average reward:", np.mean(rewards))
     return rewards, actions
 
 if __name__ == "__main__":
-    BO_RESTARTS = 10
-    BO_STEPS = 100
-    EVAL_EPISODES = 100
+    BO_RESTARTS = 2
+    BO_STEPS = 3
+    EVAL_EPISODES = 20
+
+    import yaml
+
+    with open("bmps_features/Basic.yaml", "rb") as f:
+        r = yaml.safe_load(f)
+
+    optimization_kwargs = {
+        "space" : [{"name": feature, **details} for feature, details in r["features"].items()],
+        "constraints": [{"name": feature, **details} for feature, details in r["constraints"].items()]}
+    features = list(r["features"].keys())
 
     from mouselab.mouselab import MouselabEnv
     from mouselab.cost_functions import linear_depth
     env = MouselabEnv.new_symmetric_registered("high_increasing")
     cost = linear_depth(depth_cost_weight=5.0, static_cost_weight=2.0)
 
-    W_vanilla, time_vanilla = optimize(tree=env.tree, init=env.init, cost=cost, seed=91, samples=BO_RESTARTS,
-                                       iterations=BO_STEPS, evaluated_episodes=EVAL_EPISODES, cost_function="Basic", verbose=False)
-    rewards_vanilla, actions_vanilla = eval(W_vanilla, n=500, tree=env.tree, init=env.init, cost=cost, seed=91,
-                                            cost_function="Basic")
+    tree = env.tree
+    optimization_kwargs["space"] = [{key: (eval(val) if key == "domain" else val) for key, val in
+                                     curr_param.items()} for curr_param in optimization_kwargs["space"]]
+
+    W_vanilla, time_vanilla = optimize_bmps_weights(tree=env.tree, init=env.init, cost=cost, seed=91, samples=BO_RESTARTS,
+                                       iterations=BO_STEPS, num_episodes=EVAL_EPISODES, features=features, optimization_kwargs=optimization_kwargs,  verbose=False)
+    print(W_vanilla, time_vanilla)
+    actions_vanilla = eval_bmps_weights(W_vanilla, num_episodes=EVAL_EPISODES, tree=env.tree, init=env.init, cost=cost, seed=91,
+                                            features=features, verbose=True)
+    print(actions_vanilla)
