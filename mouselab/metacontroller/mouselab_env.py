@@ -149,7 +149,7 @@ class MetaControllerMouselab(MouselabEnv):
             state: low state for computation
         """
         if action == self.term_action:
-            return [0, 0, 0]
+            return 0
         state = state if state is not None else self._state
 
         myopic_nodes = self.cost(state, action)
@@ -163,7 +163,7 @@ class MetaControllerMouselab(MouselabEnv):
             state: low state for computation
         """
         if action == self.term_action:
-            return [0, 0, 0]
+            return 0
         state = state if state is not None else self._state
 
         paths = self.path_to(action)
@@ -185,7 +185,7 @@ class MetaControllerMouselab(MouselabEnv):
             state: low state for computation
         """
         if action == self.term_action:
-            return [0, 0, 0]
+            return 0
         state = state if state is not None else self._state
 
         vpi_nodes = (len(self.subtree[0]) - 1) * self.cost(state, action)
