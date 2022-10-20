@@ -1,17 +1,17 @@
-features:
-  myopic_voc:
+features: # previously w1*features[1] + w2*features[3] + w3*features[2] + w4*(features[0][0] + (features[0][1]/num_nodes))
+  myopic_voc: # previously w1
     type: 'continuous'
     domain: (0,1)
-  vpi:
+  vpi: # previously w2
     type: 'continuous'
     domain: (0,1)
-  myopic_action_cost:
+  myopic_action_cost: # previously w4
     type: 'continuous'
     domain: (1,len(env.tree)-1)
-  vpi_action:
+  vpi_action: # previously w3
     type: 'continuous'
     domain: (-1,1)
-  proportional_vpi_action_nodes_action_cost:
+  proportional_vpi_action_nodes_action_cost: # previously w4
     type: 'continuous'
     domain: (0,1)
 constraints:
@@ -20,4 +20,4 @@ constraints:
   vpi_action: # vpi_action = 1 - myopic_voc - vpi
     constraint : 'x[:,0] + x[:,1] + x[:,3] - 1'
   equivalent_weight: # proportional_vpi_action_nodes_action_cost = myopic_action_cost
-    constraint : 'x[:,2] - x[:,4]'
+    constraint : 'x[:,4] - x[:,2]'
