@@ -37,7 +37,9 @@ class MetaControllerMouselab(MouselabEnv):
 
         # TODO: similar to modified mouselab in the MCRL repository, can we merge them?
         self.feature_function_map = {
-            "action_cost" : self.action_cost,
+            "myopic_action_cost" : self.myopic_action_cost,
+            "vpi_action_nodes_action_cost": self.vpi_action_nodes_action_cost,
+            "vpi_nodes_action_cost": self.vpi_nodes_action_cost,
             "cost" : self.cost,
             "myopic_voc" : self.myopic_voc,
             "vpi_action" : self.vpi_action,
@@ -138,7 +140,21 @@ class MetaControllerMouselab(MouselabEnv):
             subtree[i] = tuple(np.unique(sub))
         return subtree
 
-    def action_cost(self, action, state=None):
+    def myopic_action_cost(self, action, state=None):
+        """Returns the estimated number of clicks needed for action features computation in BMPS
+
+        Arguments:
+            action: low level action for computation
+            state: low state for computation
+        """
+        if action == self.term_action:
+            return [0, 0, 0]
+        state = state if state is not None else self._state
+
+        myopic_nodes = self.cost(state, action)
+        return myopic_nodes
+
+    def vpi_action_nodes_action_cost(self, action, state=None):
         """Returns the estimated number of clicks needed for action features computation in BMPS
 
         Arguments:
@@ -153,10 +169,23 @@ class MetaControllerMouselab(MouselabEnv):
         flat_paths = [node for path in paths for node in path]
         obs = (*self.subtree[action], *flat_paths)
         obs = np.unique(obs)
+
         vpi_action_nodes = (len(obs) - 1) * self.cost(state, action)
+        return vpi_action_nodes
+
+    def vpi_nodes_action_cost(self, action, state=None):
+        """Returns the estimated number of clicks needed for action features computation in BMPS
+
+        Arguments:
+            action: low level action for computation
+            state: low state for computation
+        """
+        if action == self.term_action:
+            return [0, 0, 0]
+        state = state if state is not None else self._state
+
         vpi_nodes = (len(self.subtree[0]) - 1) * self.cost(state, action)
-        myopic_nodes = self.cost(state, action)
-        return [myopic_nodes, vpi_action_nodes, vpi_nodes]
+        return vpi_nodes
 
     def to_obs_tree(self, state, node, obs=()):
         """Updated obs tree computation for tree contraction method.
