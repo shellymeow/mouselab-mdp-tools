@@ -203,18 +203,37 @@ class MaxQPolicy(Policy):
 class LiederPolicy(Policy):
     """The meta-policy of Lieder et al. (2017) AAAI."""
 
-    def __init__(self, theta, bad_max=False):
+    def __init__(self, theta):
         self.theta = np.array(theta)
 
     def act(self, state):
-        def Q(a):
-            if a == self.env.term_action:
-                return self.env.expected_term_reward(self.env._state)
-            else:
-                return np.dot(self.theta, self.env.action_features(a))
+        probs = self.action_distribution(state)
+        return self.rng.choice(len(probs), p=probs)
 
-        action = max(self.env.actions(state), key=Q)
-        return action
+    def action_distribution(self, state):
+        q, possible_actions = self.preferences(state)
+        max_q = np.amax(q)
+        max_actions = [
+            curr_action
+            for curr_q, curr_action in zip(q, possible_actions)
+            if np.abs(max_q - curr_q) < np.finfo(np.float).eps
+        ]
+
+        action_probs = np.fromiter(
+            (
+                0 if action not in max_actions else 1.0 / len(max_actions)
+                for action in range(self.n_action)
+            ),
+            dtype=np.float64,
+        )
+        return action_probs
+
+    def preferences(self, state):
+        possible_actions = np.fromiter(self.env.actions(state), dtype=int)
+        q = np.fromiter(
+            (np.dot(self.theta, self.env.action_features(a)) for a in possible_actions), dtype=np.float64
+        )
+        return q, possible_actions
 
 
 class MaxQSamplePolicy(Policy):
