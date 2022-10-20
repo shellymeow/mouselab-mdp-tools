@@ -11,7 +11,7 @@ def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_bel
     """[summary]
 
     Args:
-        W ([type]): [description]
+        W  (np.array, iterable): BMPS weights
         tree ([int]): MDP structure
         init ([int]): MDP reward distribution per node
         cost (callable): Cost of clicking on a node.
@@ -204,11 +204,11 @@ def optimize(tree, init, cost, evaluated_episodes=100, samples=30, iterations=50
 
     return W_low, train_toc-train_tic
 
-def eval(W_low, n, tree, init, cost, seed=None, term_belief=False, verbose=True, cost_function="Basic"):
+def eval(W, n, tree, init, cost, seed=None, term_belief=False, verbose=True, cost_function="Basic"):
     """Evaluates the BMPS weights and logs the execution time.
 
     Args:
-        W_low (np.array): BMPS weights
+        W (np.array): BMPS weights
         n (int): Number of episodes for evaluation.
         tree ([int]): MDP structure
         init ([int]): MDP reward distribution per node
@@ -220,8 +220,9 @@ def eval(W_low, n, tree, init, cost, seed=None, term_belief=False, verbose=True,
         [[int]]: Actions of each episode
     """
 
-    eval_tic = time.time()
-    rewards, actions = original_mouselab(W=W_low, tree=tree, init=init, cost=cost, seed=seed, num_episodes=n, term_belief=term_belief, cost_function=cost_function)
+    if verbose:
+        eval_tic = time.time()
+    rewards, actions = original_mouselab(W=W, tree=tree, init=init, cost=cost, seed=seed, num_episodes=n, term_belief=term_belief, cost_function=cost_function)
     if verbose:
         print("Seconds:", time.time() - eval_tic)
         print("Average reward:", np.mean(rewards))
