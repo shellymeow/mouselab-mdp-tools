@@ -79,7 +79,7 @@ def original_mouselab(W, TREE, INIT, LOW_COST,num_episodes=100, SEED=1000, term_
     return rewards, actions
 
 
-def optimize(TREE, INIT, LOW_COST, evaluated_episodes=100, samples=30, iterations=50, SEED=0, term_belief=True, exact_seed=False, cost_function="Basic"):
+def optimize(TREE, INIT, LOW_COST, evaluated_episodes=100, samples=30, iterations=50, SEED=0, term_belief=True, exact_seed=False, cost_function="Basic", verbose=False):
     """Optimizes the weights for BMPS using Bayesian optimization.
 
     Args:
@@ -106,7 +106,8 @@ def optimize(TREE, INIT, LOW_COST, evaluated_episodes=100, samples=30, iteration
             simple_cost = False
 
         num_episodes = evaluated_episodes
-        print("Weights", W)
+        if verbose:
+            print("Weights", W)
         
         num_nodes = len(TREE) - 1
 
@@ -146,10 +147,12 @@ def optimize(TREE, INIT, LOW_COST, evaluated_episodes=100, samples=30, iteration
                     break
             cumreturn += exp_return
             del env
-        print("Return", cumreturn/num_episodes)
+        if verbose:
+            print("Return", cumreturn/num_episodes)
         return - (cumreturn/num_episodes)
 
-    print(cost_function)
+    if verbose:
+        print(cost_function)
     np.random.seed(123456)
 
     if cost_function == "Actionweight" or cost_function == "Independentweight":
@@ -198,13 +201,14 @@ def optimize(TREE, INIT, LOW_COST, evaluated_episodes=100, samples=30, iteration
     W_low = np.array([bo.x_opt])
     train_toc = time.time()
 
-    print("\nSeconds:", train_toc-train_tic)
-    print("Weights:", W_low)
+    if verbose:
+        print("\nSeconds:", train_toc-train_tic)
+        print("Weights:", W_low)
     blackbox_original_mouselab(W_low)
 
     return W_low, train_toc-train_tic
 
-def eval(W_low, n, TREE, INIT, LOW_COST, SEED=1000, term_belief=False, log=True, exact_seed=False, cost_function="Basic"):
+def eval(W_low, n, TREE, INIT, LOW_COST, SEED=1000, term_belief=False, verbose=True, exact_seed=False, cost_function="Basic"):
     """Evaluates the BMPS weights and logs the execution time.
 
     Args:
@@ -222,7 +226,7 @@ def eval(W_low, n, TREE, INIT, LOW_COST, SEED=1000, term_belief=False, log=True,
 
     eval_tic = time.time()
     rewards, actions = original_mouselab(W=W_low, TREE=TREE, INIT=INIT, LOW_COST=LOW_COST, SEED=SEED, num_episodes=n, term_belief=term_belief, exact_seed=exact_seed, cost_function=cost_function)
-    if log:
+    if verbose:
         print("Seconds:", time.time() - eval_tic)
         print("Average reward:", np.mean(rewards))
     return rewards, actions
@@ -236,6 +240,6 @@ if __name__ == "__main__":
     env = MouselabEnv.new_symmetric_registered("high_increasing")
 
     W_vanilla, time_vanilla = optimize(TREE=env.tree, INIT=env.init, LOW_COST=True, SEED=91, samples=BO_RESTARTS,
-                                       iterations=BO_STEPS, evaluated_episodes=EVAL_EPISODES, cost_function="Basic")
+                                       iterations=BO_STEPS, evaluated_episodes=EVAL_EPISODES, cost_function="Basic", verbose=False)
     rewards_vanilla, actions_vanilla = eval(W_vanilla, n=500, TREE=env.tree, INIT=env.init, LOW_COST=True, SEED=91,
                                             cost_function="Basic", exact_seed=True)
