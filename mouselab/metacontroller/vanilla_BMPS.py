@@ -32,38 +32,6 @@ def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_bel
         [int]: Reward of each episode
         [[int]]: Actions of each episode
     """
-
-    # w1 = W[:,0] . myopic_voc
-    # w2 = W[:,1] . vpi
-    # w4 = W[:,2] . action_cost, cost
-    # if cost_function == "Actionweight" or cost_function == "Independentweight":
-    #     w0 = W[:,3] . vpi_action_nodes
-    # w3 = 1 - w1 - w2
-    #
-    # if cost_function == "Basic":
-    #     simple_cost = True
-    # else:
-    #     simple_cost = False
-    #
-    # num_nodes = len(tree) - 1
-    #
-    # def voc_estimate(x):
-    #     features = env.action_features(x)
-    #     if cost_function == "Basic":
-    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*features[0]
-    #     elif cost_function == "Hierarchical":
-    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*(w1*features[0][0] + w3*features[0][1] + w2*features[0][2])
-    #     elif cost_function == "Actionweight":
-    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*(features[0][0] + w0*(features[0][1]))
-    #     elif cost_function == "Novpi":
-    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*(w1*features[0][0] + w3*(features[0][1]/num_nodes))
-    #     elif cost_function == "Proportional":
-    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*(features[0][0] + (features[0][1]/num_nodes))
-    #     elif cost_function == "Independentweight":
-    #         return w1*features[1] + w2*features[3] + w3*features[2] + w4*features[0][0] + w0*features[0][1]
-    #     else:
-    #         assert False
-
     agent = Agent()
 
     env = [MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, features=features, seed=seed) for env_idx in range(num_episodes)]
@@ -200,11 +168,13 @@ if __name__ == "__main__":
     env = MouselabEnv.new_symmetric_registered("high_increasing")
     cost = linear_depth(depth_cost_weight=5.0, static_cost_weight=2.0)
 
-    optimization_kwargs, features = load_feature_file("Basic", env)
+    for feature_file in ["Actionweight", "Basic", "Hierarchical", "Independentweight", "Novpi", "Proportional"]:
+        print(feature_file)
+        optimization_kwargs, features = load_feature_file(feature_file, env)
 
-    W_vanilla, time_vanilla = optimize_bmps_weights(tree=env.tree, init=env.init, cost=cost, seed=91, samples=BO_RESTARTS,
-                                       iterations=BO_STEPS, num_episodes=EVAL_EPISODES, features=features, optimization_kwargs=optimization_kwargs,  verbose=False)
-    print(W_vanilla, time_vanilla)
-    actions_vanilla = eval_bmps_weights(W_vanilla, num_episodes=EVAL_EPISODES, tree=env.tree, init=env.init, cost=cost, seed=91,
-                                            features=features, verbose=True)
-    print(actions_vanilla)
+        W_vanilla, time_vanilla = optimize_bmps_weights(tree=env.tree, init=env.init, cost=cost, seed=91, samples=BO_RESTARTS,
+                                           iterations=BO_STEPS, num_episodes=EVAL_EPISODES, features=features, optimization_kwargs=optimization_kwargs,  verbose=False)
+        print(W_vanilla, time_vanilla)
+        actions_vanilla = eval_bmps_weights(W_vanilla, num_episodes=EVAL_EPISODES, tree=env.tree, init=env.init, cost=cost, seed=91,
+                                                features=features, verbose=True)
+        print(actions_vanilla)
