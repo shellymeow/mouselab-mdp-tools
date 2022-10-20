@@ -37,6 +37,7 @@ class MetaControllerMouselab(MouselabEnv):
 
         # TODO: similar to modified mouselab in the MCRL repository, can we merge them?
         self.feature_function_map = {
+            "proportional_vpi_action_nodes_action_cost" : self.proportional_vpi_action_nodes_action_cost,
             "myopic_action_cost" : self.myopic_action_cost,
             "vpi_action_nodes_action_cost": self.vpi_action_nodes_action_cost,
             "vpi_nodes_action_cost": self.vpi_nodes_action_cost,
@@ -172,6 +173,9 @@ class MetaControllerMouselab(MouselabEnv):
 
         vpi_action_nodes = (len(obs) - 1) * self.cost(state, action)
         return vpi_action_nodes
+
+    def proportional_vpi_action_nodes_action_cost(self, action, state=None):
+        return self.vpi_action_nodes_action_cost(action, state=state) / (len(self.tree) - 1)
 
     def vpi_nodes_action_cost(self, action, state=None):
         """Returns the estimated number of clicks needed for action features computation in BMPS
