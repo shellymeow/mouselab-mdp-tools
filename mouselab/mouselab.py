@@ -1,5 +1,3 @@
-import random
-
 import gym
 import numpy as np
 from gym import spaces
@@ -75,15 +73,6 @@ class MouselabEnv(gym.Env):
             self.ground_truth = np.array(list(map(sample, init)))
             self.ground_truth[0] = 0.0
 
-        if hasattr(cost, "__call__"):
-            # reads in all graph attributes and last action
-            self.cost = lambda state, action: cost(
-                state, action, graph=self.mdp_graph
-            )
-        else:
-            # make the cost function return scalar cost for all inputs if not callable
-            self.cost = lambda state, action: -abs(cost)
-
         self.include_last_action = include_last_action
 
         self.rng = default_rng(seed=seed)
@@ -91,6 +80,14 @@ class MouselabEnv(gym.Env):
         self.term_belief = term_belief
         self.sample_term_reward = sample_term_reward
         self.term_action = len(self.init)
+
+        if hasattr(cost, "__call__"):
+            # reads in all graph attributes and last action
+            self.cost = lambda state, action: cost(
+                state, action, graph=self.mdp_graph) if action != self.term_action else 0
+        else:
+            # make the cost function return scalar cost for all inputs if not callable
+            self.cost = lambda state, action: -abs(cost)
 
         # Required for gym.Env API.
         self.action_space = spaces.Discrete(len(self.init) + 1)
@@ -245,7 +242,7 @@ class MouselabEnv(gym.Env):
         yield from rec((0,))
 
     @lru_cache(CACHE_SIZE)
-    def expected_term_reward(self, state):
+    def expected_term_reward(self, state, action=None):
         return self.term_reward(state).expectation()
 
     def node_value(self, node, state=None):
@@ -268,26 +265,39 @@ class MouselabEnv(gym.Env):
         state = state if state is not None else self._state
         return self.node_value_to(node, state) + self.node_value(node, state)
 
-    # @lru_cache(CACHE_SIZE)
+    @lru_cache(CACHE_SIZE)
     def myopic_voc(self, action, state) -> NonNegativeFloat:
         return self.node_value_after_observe(
             (action,), 0, state
         ).expectation() - self.expected_term_reward(state)
 
-    # @lru_cache(CACHE_SIZE)
+    @lru_cache(CACHE_SIZE)
     def vpi_branch(self, action, state) -> NonNegativeFloat:
         obs = self._relevant_subtree(action)
         return self.node_value_after_observe(
             obs, 0, state
         ).expectation() - self.expected_term_reward(state)
 
+    # Rewritten to take multiple paths to a node into account
+    @lru_cache(CACHE_SIZE)
     def vpi_action(self, action, state) -> NonNegativeFloat:
-        obs = (*self.subtree[action][1:], *self.path_to(action)[1:])
-        return self.node_value_after_observe(
-            obs, 0, state
-        ).expectation() - self.expected_term_reward(state)
+        if action == self.term_action:
+            return 0
 
-    def vpi(self, state) -> NonNegativeFloat:
+        # Unique nodes in all paths leading to the action
+        paths = self.path_to(action)
+        flat_paths = [node for path in paths for node in path]
+        obs = (*self.subtree[action], *flat_paths)
+        obs = tuple(np.unique(obs))
+        return (self.node_value_after_observe(obs, 0, state).expectation()
+                - self.expected_term_reward(state)
+                )
+
+
+    def vpi(self, state, action=None) -> NonNegativeFloat:
+        if action == self.term_action:
+            return 0
+
         obs = self.subtree[0]
         return self.node_value_after_observe(
             obs, 0, state

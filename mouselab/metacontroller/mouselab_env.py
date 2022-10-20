@@ -27,13 +27,23 @@ ZERO = PointMass(0)
 
 
 class MetaControllerMouselab(MouselabEnv):
-    def __init__(self, tree, env, simple_cost, **kwargs):
+    def __init__(self, tree, env, features, **kwargs):
         super().__init__(tree, env, **kwargs)
 
         self.all_paths_ = tuple(tuple(n) for n in self.all_paths())
         _, self.operations = compute_operations(self.tree, [])
-        self.simple_cost = simple_cost
+        self.features = features
         self._state = self.discretize(self._state, 4)
+
+        # TODO: similar to modified mouselab in the MCRL repository, can we merge them?
+        self.feature_function_map = {
+            "action_cost" : self.action_cost,
+            "cost" : self.cost,
+            "myopic_voc" : self.myopic_voc,
+            "vpi_action" : self.vpi_action,
+            "vpi" : self.vpi,
+            "expected_term_reward" : self.expected_term_reward,
+        }
 
     def ground_truth_reward(self):
         """Returns the ground truth value of the best possible path.
@@ -84,67 +94,19 @@ class MetaControllerMouselab(MouselabEnv):
         up_to_node = [p[:p.index(node) + 1] for p in node_paths]
         return up_to_node
 
-    # Rewritten to take multiple paths to a node into account
-    @lru_cache(CACHE_SIZE)
-    def vpi_action(self, action, state) -> NonNegativeFloat:
-        # Unique nodes in all paths leading to the action
-        paths = self.path_to(action)
-        flat_paths = [node for path in paths for node in path]
-        obs = (*self.subtree[action], *flat_paths)
-        obs = tuple(np.unique(obs))
-        return (self.node_value_after_observe(obs, 0, state).expectation()
-                - self.expected_term_reward(state)
-                )
-
     # Discretize before calculating features
-    def action_features(self, action, bins=4, state=None):
+    def action_features(self, action, state=None):
         """Returns the low action features used for BMPS
 
         Arguments:
             action: low level action for computation
-            bins: number of bins for discretization
             state: low state for computation
         """
         state = state if state is not None else self._state
-        # state_disc = self.discretize(state, bins)
-
         assert state is not None
 
-        if action == self.term_action:
-            if self.simple_cost:
-                return np.array([
-                    0,
-                    0,
-                    0,
-                    0,
-                    self.expected_term_reward(state)
-                ])
-            else:
-                return np.array([
-                    [0, 0, 0],
-                    0,
-                    0,
-                    0,
-                    self.expected_term_reward(state)
-                ])
-
-        if self.simple_cost:
-            return np.array([
-                self.cost(state, action),
-                self.myopic_voc(action, state),
-                self.vpi_action(action, state),
-                self.vpi(state),
-                self.expected_term_reward(state)
-            ])
-
-        else:
-            return np.array([
-                self.action_cost(action),
-                self.myopic_voc(action, state),  # state_disc),
-                self.vpi_action(action, state),  # state_disc),
-                self.vpi(state),  # _disc),
-                self.expected_term_reward(state)
-            ])
+        return np.array([self.feature_function_map[feature](state=state, action=action)
+                         for feature in self.features])
 
     def discretize(self, state, bins):
         """Discretizes the state space
@@ -183,6 +145,8 @@ class MetaControllerMouselab(MouselabEnv):
             action: low level action for computation
             state: low state for computation
         """
+        if action == self.term_action:
+            return [0, 0, 0]
         state = state if state is not None else self._state
 
         paths = self.path_to(action)
@@ -212,7 +176,7 @@ class MetaControllerMouselab(MouselabEnv):
         else:
             assert False
 
-    @lru_cache(16384)
+    @lru_cache(SMALL_CACHE_SIZE)
     def compute_node_value(self, obs_tree):
         """ Wrapper for node compute function independent of precomputed operations to ensure proper caching.
 
