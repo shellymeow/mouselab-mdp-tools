@@ -19,5 +19,5 @@ constraints:
     constraint: 'x[:,0] + x[:,1] - 1'
   vpi_action: # vpi_action = 1 - myopic_voc - vpi
     constraint : 'x[:,0] + x[:,1] + x[:,3] - 1'
-  equivalent_weight: # previous:  w4*(w1*features[0][0] + w3*(features[0][1]/num_nodes))
-    constraint : 'x[:,4] - x[:,3] * x[:,2] / x[:, 0]'
+  equivalent_weight: # proportional_vpi_action_nodes_action_cost = myopic_action_cost
+    constraint : 'x[:,2] - x[:,4]'
