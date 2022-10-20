@@ -203,8 +203,9 @@ class MaxQPolicy(Policy):
 class LiederPolicy(Policy):
     """The meta-policy of Lieder et al. (2017) AAAI."""
 
-    def __init__(self, theta):
+    def __init__(self, theta, seed=None):
         self.theta = np.array(theta)
+        self.rng = default_rng(seed)
 
     def act(self, state):
         probs = self.action_distribution(state)
