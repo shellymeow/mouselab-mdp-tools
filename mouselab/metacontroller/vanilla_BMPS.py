@@ -168,7 +168,7 @@ if __name__ == "__main__":
     env = MouselabEnv.new_symmetric_registered("high_increasing")
     cost = linear_depth(depth_cost_weight=5.0, static_cost_weight=2.0)
 
-    for feature_file in ["Actionweight", "Basic", "Hierarchical", "Independentweight", "Novpi", "Proportional"]:
+    for feature_file in ["Basic"]:
         print(feature_file)
         optimization_kwargs, features = load_feature_file(feature_file, env)
 

@@ -13,7 +13,6 @@ The original mouselab environment has been extended in utils.mouselab_VAR to inc
 from mouselab.mouselab import MouselabEnv
 from mouselab.distributions import PointMass, Categorical, expectation, cross
 import numpy as np
-from pydantic import NonNegativeFloat
 
 NO_CACHE = False
 if NO_CACHE:
