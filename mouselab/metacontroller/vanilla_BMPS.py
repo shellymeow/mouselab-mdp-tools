@@ -15,6 +15,9 @@ import yaml
 from mouselab.mouselab import MouselabEnv
 from mouselab.cost_functions import linear_depth
 
+def add_secondary_variables(W, secondary_variables):
+    return np.append(W, [eval(secondary_variables[secondary_variable])(W) for secondary_variable in secondary_variables])
+
 def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_belief=False, features=None, verbose=False):
     """[summary]
 
@@ -34,16 +37,17 @@ def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_bel
     """
     agent = Agent()
 
-    env = [MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, features=features, seed=seed) for env_idx in range(num_episodes)]
+    env = [MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, features=features, seed=seed) for _ in range(num_episodes)]
     agent.register(env)
 
     agent.register(LiederPolicy(theta=W.flatten()))
 
     trace = agent.run_many(pbar=verbose)
+
     return trace["return"], trace["actions"]
 
 
-def optimize_bmps_weights(tree, init, cost, num_episodes=100, samples=30, iterations=50, seed=None, optimization_seed=123456, term_belief=True, features=None, optimization_kwargs=None,
+def optimize_bmps_weights(tree, init, cost, num_episodes=100, samples=30, iterations=50, seed=None, optimization_seed=123456, term_belief=True, features=None, optimization_kwargs=None, secondary_variables=None,
              verbose=False):
     """Optimizes the weights for BMPS using Bayesian optimization.
 
@@ -59,19 +63,15 @@ def optimize_bmps_weights(tree, init, cost, num_episodes=100, samples=30, iterat
     """
 
     def blackbox_original_mouselab(W):
-        agent = Agent()
-
-        env = [MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, features=features, seed=seed) for
-               env_idx in range(num_episodes)]
-        agent.register(env)
-
-        agent.register(LiederPolicy(theta=W.flatten()))
-
-        trace = agent.run_many(pbar=verbose)
+        W = add_secondary_variables(W, secondary_variables=secondary_variables)
+        print(W)
+        returns, actions = original_mouselab(W, tree, init, cost, num_episodes=num_episodes, seed=seed, term_belief=term_belief, features=features,
+                          verbose=verbose)
 
         if verbose:
-            print("Return", np.sum(trace["return"])/num_episodes)
-        return - np.sum(trace["return"])/num_episodes
+            print("Return", np.sum(returns) / num_episodes)
+
+        return - np.sum(returns) / num_episodes
 
     # not best practice, but seems this optimization library is past support:
     # https://github.com/SheffieldML/GPyOpt/issues/337
@@ -114,7 +114,9 @@ def optimize_bmps_weights(tree, init, cost, num_episodes=100, samples=30, iterat
     if verbose:
         print("\nSeconds:", train_toc-train_tic)
         print("Weights:", W_low)
+
     blackbox_original_mouselab(W_low)
+    W_low = add_secondary_variables(W_low, optimization_parameters=optimization_kwargs)
 
     return W_low, train_toc-train_tic
 
@@ -151,13 +153,14 @@ def load_feature_file(filename, env, path=None):
 
     optimization_kwargs = {
         "space" : [{"name": feature, **details} for feature, details in feature_inputs["features"].items()],
-        "constraints": [{"name": feature, **details} for feature, details in feature_inputs["constraints"].items()]}
+        "constraints": [{"name": feature, **details} for feature, details in feature_inputs["constraints"].items()],
+    }
     features = list(feature_inputs["features"].keys())
 
     optimization_kwargs["space"] = [{key: (eval(val) if key == "domain" else val) for key, val in
                                      curr_param.items()} for curr_param in optimization_kwargs["space"]]
 
-    return optimization_kwargs, features
+    return optimization_kwargs, features, feature_inputs["secondary_variables"]
 
 
 if __name__ == "__main__":
@@ -170,10 +173,10 @@ if __name__ == "__main__":
 
     for feature_file in ["Basic"]:
         print(feature_file)
-        optimization_kwargs, features = load_feature_file(feature_file, env)
+        optimization_kwargs, features, secondary_variables = load_feature_file(feature_file, env)
 
         W_vanilla, time_vanilla = optimize_bmps_weights(tree=env.tree, init=env.init, cost=cost, seed=91, samples=BO_RESTARTS,
-                                           iterations=BO_STEPS, num_episodes=EVAL_EPISODES, features=features, optimization_kwargs=optimization_kwargs,  verbose=False)
+                                           iterations=BO_STEPS, num_episodes=EVAL_EPISODES, features=features, optimization_kwargs=optimization_kwargs, secondary_variables=secondary_variables, verbose=False)
         print(W_vanilla, time_vanilla)
         actions_vanilla = eval_bmps_weights(W_vanilla, num_episodes=EVAL_EPISODES, tree=env.tree, init=env.init, cost=cost, seed=91,
                                                 features=features, verbose=True)
