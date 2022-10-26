@@ -18,7 +18,7 @@ from mouselab.cost_functions import linear_depth
 def add_secondary_variables(W, secondary_variables):
     return np.append(W, [eval(secondary_variables[secondary_variable])(W) for secondary_variable in secondary_variables])
 
-def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_belief=False, features=None, verbose=False):
+def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_belief=False, features=None, verbose=False, **env_kwargs):
     """[summary]
 
     Args:
@@ -37,7 +37,7 @@ def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_bel
     """
     agent = Agent()
 
-    env = [MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, features=features, seed=seed) for _ in range(num_episodes)]
+    env = [MetaControllerMouselab(tree, init, cost=cost, term_belief=term_belief, features=features, seed=seed, **env_kwargs) for _ in range(num_episodes)]
     agent.register(env)
 
     agent.register(LiederPolicy(theta=W.flatten()))
@@ -48,7 +48,7 @@ def original_mouselab(W, tree, init, cost ,num_episodes=100, seed=None, term_bel
 
 
 def optimize_bmps_weights(tree, init, cost, num_episodes=100, samples=30, iterations=50, seed=None, optimization_seed=123456, term_belief=True, features=None, optimization_kwargs=None, secondary_variables=None,
-             verbose=False):
+             verbose=False, **env_kwargs):
     """Optimizes the weights for BMPS using Bayesian optimization.
 
     Args:
@@ -77,6 +77,8 @@ def optimize_bmps_weights(tree, init, cost, num_episodes=100, samples=30, iterat
     # https://github.com/SheffieldML/GPyOpt/issues/337
     np.random.seed(optimization_seed)
 
+    optimization_kwargs["space"] = [{key: (eval(val) if key == "domain" else val) for key, val in
+                                     curr_param.items()} for curr_param in optimization_kwargs["space"] if curr_param["type"] != "secondary"]
     feasible_region = GPyOpt.Design_space(**optimization_kwargs)
 
     initial_design = GPyOpt.experiment_design.initial_design('random', feasible_region, samples)
@@ -85,7 +87,7 @@ def optimize_bmps_weights(tree, init, cost, num_episodes=100, samples=30, iterat
 
     # --- CHOOSE the model type
     #This model does Maximum likelihood estimation of the hyper-parameters.
-    model = GPyOpt.models.GPModel(exact_feval=True,optimize_restarts=10,verbose=False)
+    model = GPyOpt.models.GPModel(exact_feval=True,optimize_restarts=10,verbose=verbose)
 
     # --- CHOOSE the acquisition optimizer
     aquisition_optimizer = GPyOpt.optimization.AcquisitionOptimizer(feasible_region)
@@ -116,7 +118,7 @@ def optimize_bmps_weights(tree, init, cost, num_episodes=100, samples=30, iterat
         print("Weights:", W_low)
 
     blackbox_original_mouselab(W_low)
-    W_low = add_secondary_variables(W_low, optimization_parameters=optimization_kwargs)
+    W_low = add_secondary_variables(W_low, secondary_variables=secondary_variables)
 
     return W_low, train_toc-train_tic
 
@@ -144,36 +146,34 @@ def eval_bmps_weights(W, num_episodes, tree, init, cost, seed=None, term_belief=
         print("Average reward:", np.mean(rewards))
     return rewards, actions
 
-def load_feature_file(filename, env, path=None):
+def load_feature_file(filename, path=None):
     if path is None:
-        path = Path(__file__).parents[0]
+        path = Path(__file__).parents[0] / "bmps_features"
 
-    with open(path / f"bmps_features/{filename}.yaml", "rb") as f:
+    with open(path / f"{filename}.yaml", "rb") as f:
         feature_inputs = yaml.safe_load(f)
 
     optimization_kwargs = {
         "space" : [{"name": feature, **details} for feature, details in feature_inputs["features"].items()],
-        "constraints": [{"name": feature, **details} for feature, details in feature_inputs["constraints"].items()],
-    }
+        "constraints": [{"name": feature, **details} for feature, details in feature_inputs["constraints"].items()]}
+    # add any additional arguments, could store optimization hyperparameters in YAML file
+    additional_kwargs = {key : val for key, val in feature_inputs.items() if key not in ["features", "constraints", "initial_function"]}
     features = list(feature_inputs["features"].keys())
 
-    optimization_kwargs["space"] = [{key: (eval(val) if key == "domain" else val) for key, val in
-                                     curr_param.items()} for curr_param in optimization_kwargs["space"]]
-
-    return optimization_kwargs, features, feature_inputs["secondary_variables"]
+    return optimization_kwargs, features, additional_kwargs, feature_inputs["secondary_variables"]
 
 
 if __name__ == "__main__":
-    BO_RESTARTS = 2
-    BO_STEPS = 3
-    EVAL_EPISODES = 20
+    BO_RESTARTS = 10
+    BO_STEPS = 50
+    EVAL_EPISODES = 100
 
     env = MouselabEnv.new_symmetric_registered("high_increasing")
     cost = linear_depth(depth_cost_weight=5.0, static_cost_weight=2.0)
 
     for feature_file in ["Basic"]:
         print(feature_file)
-        optimization_kwargs, features, secondary_variables = load_feature_file(feature_file, env)
+        optimization_kwargs, features, _, secondary_variables = load_feature_file(feature_file)
 
         W_vanilla, time_vanilla = optimize_bmps_weights(tree=env.tree, init=env.init, cost=cost, seed=91, samples=BO_RESTARTS,
                                            iterations=BO_STEPS, num_episodes=EVAL_EPISODES, features=features, optimization_kwargs=optimization_kwargs, secondary_variables=secondary_variables, verbose=False)
