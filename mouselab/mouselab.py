@@ -417,9 +417,8 @@ class MouselabEnv(gym.Env):
 
         return [tuple(gen(n)) for n in range(len(self.tree))]
 
-    @classmethod
-    def new_symmetric(cls, branching, reward, seed=None, **kwargs):
-        """Returns a MouselabEnv with a symmetric structure."""
+    @staticmethod
+    def branching_and_reward_to_inputs(branching, reward):
         if not callable(reward):
             r = reward
             reward = lambda depth: r
@@ -438,6 +437,13 @@ class MouselabEnv(gym.Env):
             return my_idx
 
         expand(0)
+        return tree, init
+
+    @classmethod
+    def new_symmetric(cls, branching, reward, seed=None, **kwargs):
+        """Returns a MouselabEnv with a symmetric structure."""
+        tree, init = cls.branching_and_reward_to_inputs(branching=branching, reward=reward)
+
         return cls(tree, init, seed=seed, **kwargs)
 
     @classmethod
