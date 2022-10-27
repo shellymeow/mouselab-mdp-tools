@@ -13,7 +13,7 @@ from mouselab.graph_utils import (
     graph_from_adjacency_list,
 )
 import networkx as nx
-from scipy import distance
+from scipy.spatial import distance
 
 NO_CACHE = False
 if NO_CACHE:
@@ -564,3 +564,81 @@ def exact_node_value_after_observe(obs_tree):
     """
     children = tuple(exact_node_value_after_observe(c) + c[0] for c in obs_tree[1])
     return cmax(children, default=ZERO)
+
+from mouselab.exact import hash_tree
+from gym.spaces import Space
+from mouselab.distributions import Categorical
+from typing import Sequence, Union, Iterable
+import numpy as np
+class MultiCategorical(Space):
+    def __init__(self, initial_states, initial_state_probabilities, unrevealed_sample_prob=0.50, seed=None):
+        self.initial_states = initial_states
+        self.initial_state_probabilities = initial_state_probabilities
+
+        self.unrevealed_prob = unrevealed_sample_prob
+
+        super().__init__(shape=[len(initial_states[0])], seed=seed)
+
+    def sample(self):
+        initial_state = self.np_random.choice(a=self.initial_states, p=self.initial_state_probabilities)
+        unrevealed_node = self.np_random.choice(a=[True, False], p=[self.unrevealed_prob, 1 - self.unrevealed_prob],
+                                                size=np.shape(initial_state))
+
+        return [node if (unrevealed or not hasattr(node, "sample")) else node.sample() for node, unrevealed in
+                zip(initial_state, unrevealed_node)]
+
+    def contains(self, x) -> bool:
+        """Does the space contain x?"""
+        if isinstance(x, Sequence):
+            x = np.array(x)  # done in MultiDiscrete class
+
+        print(x)
+        for node_idx, node in enumerate(x):
+            if hasattr(node, "sample"):
+                if node not in [initial_state[node_idx] for initial_state in self.initial_states]:
+                    return False
+            else:
+                if node not in [val for initial_state in self.initial_states for val in (
+                [initial_state[node_idx]] if not hasattr(initial_state[node_idx], "sample") else initial_state[
+                    node_idx].vals)]:
+                    return False
+        return True
+
+
+class MouselabEnvSymmetricRegistered(MouselabEnv):
+    def __init__(self, experiment_setting : str, seed : int =None, **kwargs):
+        if registry(experiment_setting).reward_inputs != "depth":
+            raise ValueError("Symmetric can only be used if reward input is depth.")
+
+        branching = registry(experiment_setting).branching
+        reward = registry(experiment_setting).reward_function
+
+        tree, init = self.branching_and_reward_to_inputs(branching, reward)
+        super().__init__(tree, init, seed=seed, **kwargs)
+
+        self.possible_values = [list(set([val for initial_state in self.initial_states for val in (
+                [initial_state[node_idx]] if not hasattr(initial_state[node_idx], "sample") else initial_state[
+                    node_idx].vals)] +  [initial_state[node_idx] for initial_state in self.initial_states])) for node_idx in range(len(self.init))]
+        print(self.possible_values )
+        self.observation_space = spaces.MultiDiscrete([len(possible_values) for possible_values in self.possible_values])
+        # self.observation_space = spaces.Box(-np.inf, np.inf, shape=[len(self.init)])
+        # self.observation_space = MultiCategorical(self.initial_states, self.initial_state_probabilities)
+
+    @staticmethod
+    def state_to_observation_space(state, possible_values):
+        # return np.array([hash(node) for node in state])
+        # return [hash_tree(self, state)]
+        return [node_possible_values.index(node) for node, node_possible_values in zip(state, possible_values)]
+
+    def reset(self):
+        state = super().reset()
+        return self.state_to_observation_space(state, self.possible_values)
+
+    def step(self, action):
+        if action != self.term_action:
+            if not hasattr(self._state[action], "sample"):
+                return [hash(node) for node in self._state], -100, False, {}
+        state, reward, done, _ = super().step(action)
+        return self.state_to_observation_space(state, self.possible_values), reward, done, {}
+    def render(self):
+        return self._render(use_networkx=True)
