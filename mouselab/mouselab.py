@@ -499,12 +499,14 @@ class MouselabEnv(gym.Env):
                 return "#F7BDC4"
 
         if use_networkx == True:
-            assert ["layout" in self.mdp_graph.nodes[node] for node in
-                    self.mdp_graph.nodes(data=False)], "Must provide layout information for this render type"
+            if all("layout" in self.mdp_graph.nodes[node] for node in
+                   self.mdp_graph.nodes(data=False)):
+                layout = {node: self.mdp_graph.nodes[node]["layout"] for node in self.mdp_graph.nodes(data=False)}
+            else:
+                layout = None
             # label should either be revealed value, or empty if still unrevealed
             labels = {node: (str(self._state[node]) if not hasattr(self._state[node], 'sample') else '') for node in
                       self.mdp_graph.nodes(data=False)}
-            layout = {node: self.mdp_graph.nodes[node]["layout"] for node in self.mdp_graph.nodes(data=False)}
             node_color = [("#DEDEDE" if labels[node] == "" else color(float(labels[node]))) for node in range(len(self.mdp_graph.nodes(data=False)))]
             plot = nx.draw(self.mdp_graph, pos=layout, labels=labels, node_color=node_color, node_size=2000, arrowsize=30)
             return plot
