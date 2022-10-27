@@ -13,6 +13,7 @@ from mouselab.graph_utils import (
     graph_from_adjacency_list,
 )
 import networkx as nx
+from scipy import distance
 
 NO_CACHE = False
 if NO_CACHE:
@@ -42,6 +43,7 @@ class MouselabEnv(gym.Env):
         include_last_action : bool = False,
         seed=None,
         mdp_graph_properties={},
+        last_action_info = None
     ):
         """
         :param tree: adjacency list
@@ -56,6 +58,7 @@ class MouselabEnv(gym.Env):
         :param seed: seed for numpy random number generator
         :param mdp_graph_properties: properties to add to mdp graph,
                     as dictionary of {attribute : dictionary of {node : value}}
+        :param what last_action_info to calculate (only distance supported)
         """
         self.tree = tree
         mdp_graph = graph_from_adjacency_list(self.tree)
@@ -74,6 +77,11 @@ class MouselabEnv(gym.Env):
             self.ground_truth[0] = 0.0
 
         self.include_last_action = include_last_action
+        # potentially used for hashing that depends on last action
+        if last_action_info == "distance":
+            self.last_action_info = self.get_distance_matrix()
+        else:
+            self.last_action_info = None
 
         self.rng = default_rng(seed=seed)
 
@@ -110,6 +118,9 @@ class MouselabEnv(gym.Env):
 
     def __hash__(self):
         return self._hash
+
+    def get_distance_matrix(self, distance_function=distance.euclidean):
+        return [[distance_function(first_node["layout"], second_node["layout"]) for second_node in  self.mdp_graph.nodes(data=False)] for first_node in self.mdp_graph.nodes(data=False)]
 
     def reset(self):
         return self._reset()

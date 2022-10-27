@@ -18,14 +18,15 @@ def sort_tree(env, state):
     return tuple(state)
 
 
-def hash_tree(env, state, action=None, last_action_info=None):
+def hash_tree(env, state, action=None):
     """
     Breaks symmetry between belief states.
 
     env: MouselabEnv or child
+        last_action_info: array of size number of actions x number of actions
+        include_last_action: whether last action is in state
     state: state
     action: action for hash (optional)
-    last_action_info: array of size number of actions x number of actions
     """
     if state == "__term_state__":
         return hash(state)
@@ -33,12 +34,12 @@ def hash_tree(env, state, action=None, last_action_info=None):
     # include some info about last action
     if env.include_last_action and action is not env.term_action:
         # no last_action_info -> just one hot encoding of last action
-        if last_action_info is None:
+        if env.last_action_info is None:
             node_last_clicks = [0 for action_idx, action in enumerate(state[:-1])]
             node_last_clicks[state[-1]] = 1
         # otherwise take the entry in that array for the last action (e.g. distances to other nodes)
         else:
-            node_last_clicks = last_action_info[state[-1]]
+            node_last_clicks = env.last_action_info[state[-1]]
         # zip up state and node last clicks
         state = [*zip(state[:-1],node_last_clicks)]
 
