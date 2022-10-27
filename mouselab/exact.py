@@ -1,5 +1,4 @@
 from toolz import memoize, unique
-from mouselab.env_utils import get_all_possible_ground_truths
 
 def sort_tree(env, state):
     """Breaks symmetry between belief states.
@@ -20,18 +19,30 @@ def sort_tree(env, state):
 
 
 def hash_tree(env, state, action=None, last_action_info=None):
-    """Breaks symmetry between belief states."""
+    """
+    Breaks symmetry between belief states.
+
+    env: MouselabEnv or child
+    state: state
+    action: action for hash (optional)
+    last_action_info: array of size number of actions x number of actions
+    """
     if state == "__term_state__":
         return hash(state)
 
+    # include some info about last action
     if env.include_last_action and action is not env.term_action:
+        # no last_action_info -> just one hot encoding of last action
         if last_action_info is None:
             node_last_clicks = [0 for action_idx, action in enumerate(state[:-1])]
             node_last_clicks[state[-1]] = 1
+        # otherwise take the entry in that array for the last action (e.g. distances to other nodes)
         else:
             node_last_clicks = last_action_info[state[-1]]
+        # zip up state and node last clicks
         state = [*zip(state[:-1],node_last_clicks)]
 
+    # handles converting this to a (s,a) hash rather than just s hash
     if action is not None and action is not env.term_action:
         actions = [0 for _ in state]
         actions[action] = 1
