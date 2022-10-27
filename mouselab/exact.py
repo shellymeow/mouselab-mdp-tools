@@ -59,7 +59,7 @@ def hash_tree(env, state, action=None):
 
     return rec(0)
 
-def solve(env, hash_state=None, actions=None, blinkered=None, last_action_info=None):
+def solve(env, hash_state=None, actions=None, blinkered=None):
     """Returns Q, V, pi, and computation data for an mdp environment."""
     info = {"q": 0, "v": 0}  # track number of times each function is called
 
@@ -68,7 +68,7 @@ def solve(env, hash_state=None, actions=None, blinkered=None, last_action_info=N
             hash_state = lambda state: tuple(sorted(state))
         elif hasattr(env, "tree"):
             # hash_state = lambda state: sort_tree(env, state)
-            hash_state = lambda state: hash_tree(env, state, last_action_info=last_action_info)
+            hash_state = lambda state: hash_tree(env, state)
 
     # for tests with no hashing
     if hash_state == "test":
