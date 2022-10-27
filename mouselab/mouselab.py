@@ -120,7 +120,7 @@ class MouselabEnv(gym.Env):
         return self._hash
 
     def get_distance_matrix(self, distance_function=distance.euclidean):
-        return [[distance_function(first_node["layout"], second_node["layout"]) for second_node in  self.mdp_graph.nodes(data=False)] for first_node in self.mdp_graph.nodes(data=False)]
+        return [[distance_function(self.mdp_graph.nodes[first_node]["layout"], self.mdp_graph.nodes[second_node]["layout"]) for second_node in  self.mdp_graph.nodes(data=False)] for first_node in self.mdp_graph.nodes(data=False)]
 
     def reset(self):
         return self._reset()
