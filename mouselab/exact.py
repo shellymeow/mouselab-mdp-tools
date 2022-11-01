@@ -150,29 +150,3 @@ def solve(env, hash_state=None, actions=None, blinkered=None):
         return max(actions(s), key=lambda a: Q(s, a))
 
     return Q, V, pi, info
-
-def get_previous_sa_pairs(env, sa_pair):
-    if env.include_last_action:
-        state = sa_pair[0][:-1]
-    else:
-        state = sa_pair[0]
-
-    previous_sa_pairs = []
-    for initial_state in env.initial_states:
-        for node_idx, node in enumerate(initial_state):
-            if hasattr(node, 'sample'):
-                curr_state = list(state)
-                curr_state[node_idx] = node
-
-                if env.include_last_action:
-                    previous_sa_pairs.extend([((*curr_state, last_node_idx),node_idx) for last_node_idx, last_node in enumerate(curr_state) if not hasattr(last_node, 'sample') and last_node_idx != 0])
-                    previous_sa_pairs.extend(
-                        [((*curr_state, last_node_idx), env.term_action) for last_node_idx, last_node in enumerate(curr_state) if
-                            not hasattr(last_node, 'sample') and last_node_idx != 0])
-
-                else:
-                    previous_sa_pairs.extend(
-                        [(tuple(curr_state), node_idx)])
-                    previous_sa_pairs.extend(
-                        [(tuple(curr_state), env.term_action)])
-    return previous_sa_pairs
