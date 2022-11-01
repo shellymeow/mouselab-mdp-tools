@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name="mouselab",
     version="0.0.1",
-    packages=["mouselab", "mouselab.envs"],
+    packages=["mouselab", "mouselab.envs", "mouselab.metacontroller"],
     url="",
     license="",
     author="Fred Callaway, Sayan Gul, Yash Raj Jain",
@@ -15,6 +15,7 @@ setup(
         "scipy",
         "contexttimer",
         "dill",
+        "GPyOpt",
         "gym",
         "IPython",
         "joblib",
