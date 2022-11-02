@@ -68,7 +68,7 @@ class Agent(ABC):
             )
             return trace
 
-    def _run_specific_episode(self, env, policy, max_steps=1000, render=False):
+    def _run_specific_episode(self, env, policy, max_steps=1000, render=False, fresh_start=True):
         # create trace dictionary
         trace = defaultdict(list)
         trace.update(
@@ -83,12 +83,15 @@ class Agent(ABC):
         )
 
         # start episode
-        new_state = env.reset()
+        if fresh_start:
+            new_state = env.reset()
+        else:
+            new_state = env._state
         self._start_episode(new_state)
 
         done = False
         num_steps = 0
-        while not done:
+        while not done and new_state != env.term_state:
             if num_steps == max_steps:
                 raise BaseException(f"Reached max steps: {max_steps}")
 
@@ -145,10 +148,10 @@ class Agent(ABC):
         for episode_idx in tqdm(range(num_episodes), disable=not pbar):
             if isinstance(self.env, list):
                 trace = self._run_specific_episode(
-                    self.env[episode_idx], self.policy, **kwargs
+                    deepcopy(self.env[episode_idx]), self.policy, **kwargs
                 )
             else:
-                trace = self._run_specific_episode(self.env, self.policy, **kwargs)
+                trace = self._run_specific_episode(deepcopy(self.env), self.policy, **kwargs)
 
             data["n_steps"].append(len(trace["states"]))
             for k, v in trace.items():
