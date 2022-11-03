@@ -90,8 +90,7 @@ class MetaControllerMouselab(MouselabEnv):
         Returns:
             list of list of int: All paths to the node in a nested list
         """
-        all_paths = self.all_paths()
-        node_paths = [p for p in all_paths if node in p]
+        node_paths = [p for p in self.all_paths_ if node in p]
         # Cut of remaining path after target node
         up_to_node = [p[:p.index(node) + 1] for p in node_paths]
         return up_to_node
