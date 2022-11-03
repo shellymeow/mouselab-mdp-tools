@@ -12,7 +12,7 @@ def timed_solve_env(
 ):
     with Timer() as timer:
         states = get_all_possible_states_for_ground_truths(
-            categorical_gym_env=MetaControllerMouselab(env.tree, env.init, features=env.features), ground_truths=ground_truths)
+            categorical_gym_env=env, ground_truths=ground_truths)
         sa_pairs = get_sa_pairs_from_states(states)
         if env.include_last_action:
             sa_pairs = add_extended_state_to_sa_pairs(sa_pairs)
@@ -33,6 +33,10 @@ def timed_solve_env(
 
     return Q
 
+def ground_truth_compatible_with_state(state, ground_truth):
+    return all([ground_truth_node == state_node for state_node, ground_truth_node in zip(state, ground_truth) if
+            not hasattr(state_node, 'sample')])    
+        
 def get_rollouts_for_ground_truths(weights,
                                    state,
                                    action,
