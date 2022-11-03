@@ -1,6 +1,6 @@
 from contexttimer import Timer
 
-from mouselab.env_utils import get_all_possible_states_for_ground_truths, get_sa_pairs_from_states
+from mouselab.env_utils import get_all_possible_states_for_ground_truths, get_sa_pairs_from_states, add_extended_state_to_sa_pairs
 from mouselab.metacontroller.mouselab_env import MetaControllerMouselab
 import numpy as np
 from mouselab.agents import Agent
@@ -14,6 +14,8 @@ def timed_solve_env(
         states = get_all_possible_states_for_ground_truths(
             categorical_gym_env=MetaControllerMouselab(env.tree, env.init, features=env.features), ground_truths=ground_truths)
         sa_pairs = get_sa_pairs_from_states(states)
+        if env.include_last_action:
+            sa_pairs = add_extended_state_to_sa_pairs(sa_pairs)
 
         if verbose:
             print(f"Got (s,a) pairs, time elapsed: {timer.elapsed}")
