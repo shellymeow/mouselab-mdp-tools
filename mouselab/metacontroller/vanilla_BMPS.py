@@ -157,7 +157,7 @@ def load_feature_file(filename, path=None):
         "space" : [{"name": feature, **details} for feature, details in feature_inputs["features"].items()],
         "constraints": [{"name": feature, **details} for feature, details in feature_inputs["constraints"].items()]}
     # add any additional arguments, could store optimization hyperparameters in YAML file
-    additional_kwargs = {key : val for key, val in feature_inputs.items() if key not in ["features", "constraints", "initial_function"]}
+    additional_kwargs = {key : val for key, val in feature_inputs.items() if key not in ["features", "constraints", "secondary_variables"]}
     features = list(feature_inputs["features"].keys())
 
     return optimization_kwargs, features, additional_kwargs, feature_inputs["secondary_variables"]
