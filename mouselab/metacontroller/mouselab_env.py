@@ -192,6 +192,8 @@ class MetaControllerMouselab(MouselabEnv):
     def to_obs_tree(self, state, node, obs=()):
         """Updated obs tree computation for tree contraction method.
         """
+        if self.include_last_action:
+            state = state[:-1]
         state = [state[n] if n in obs else expectation(state[n]) for n in range(len(state))]
         state = [node if hasattr(node, "sample") else Categorical([node]) for node in state]
         return tuple(state)
