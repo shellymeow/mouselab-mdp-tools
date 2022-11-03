@@ -64,7 +64,7 @@ def optimize_bmps_weights(tree, init, cost, num_episodes=100, samples=30, iterat
 
     def blackbox_original_mouselab(W):
         W = add_secondary_variables(W, secondary_variables=secondary_variables)
-        print(W)
+
         returns, actions = original_mouselab(W, tree, init, cost, num_episodes=num_episodes, seed=seed, term_belief=term_belief, features=features,
                           verbose=verbose)
 
