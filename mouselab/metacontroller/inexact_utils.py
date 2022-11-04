@@ -51,7 +51,7 @@ def get_rollouts_for_ground_truths(weights,
     
 
     envs = [MetaControllerMouselab(tree, init, cost=cost, term_belief=False, features=features, seed=91, mdp_graph_properties=mdp_graph_properties,
-                                   ground_truth=ground_truth, **env_params) for ground_truth in ground_truths if ground_truth_compatible_with_state(state, ground_truth)] * num_repetitions
+                                   ground_truth=ground_truth, **env_params) for ground_truth in ground_truths if ground_truth_compatible_with_state(state, ground_truth) for _ in range(num_repetitions)]
 
     rewards = [0 for _ in envs]
     for env_num, curr_env in enumerate(envs):
