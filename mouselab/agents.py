@@ -152,14 +152,14 @@ class Agent(ABC):
         for episode_idx in tqdm(range(num_episodes), disable=not pbar):
             if isinstance(self.env, list):
                 trace = self._run_specific_episode(
-                    self.env[episode_idx], self.policy, **kwargs
+                    self.env[episode_idx], self.policy, fresh_start=fresh_start, **kwargs
                 )
             else:
                 if fresh_start:
                     self.env.reset()
                 else:
                     self.env._state = starting_state
-                trace = self._run_specific_episode(self.env, self.policy, **kwargs)
+                trace = self._run_specific_episode(self.env, self.policy, fresh_start=fresh_start, **kwargs)
 
             data["n_steps"].append(len(trace["states"]))
             for k, v in trace.items():
