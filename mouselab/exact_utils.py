@@ -61,6 +61,8 @@ def construct_q_dictionary(Q, env, ground_truths=None, verbose=False, hash_key=N
         all_possible_states = get_all_possible_states_for_ground_truths(
             env, ground_truths
         )
+        all_possible_states = [list(possible_state) for possible_state in unique([tuple(possible_state) for possible_state in all_possible_states])]
+
         sa = get_sa_pairs_from_states(all_possible_states)
 
         if env.include_last_action:
