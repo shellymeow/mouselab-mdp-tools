@@ -94,3 +94,23 @@ def test_depth_calculation(branching, true_depths, mdp_graph_properties):
     )
     depth_dict = {node: data["depth"] for node, data in env.mdp_graph.nodes(data=True)}
     assert depth_dict == true_depths
+
+
+@pytest.mark.parametrize("setting,expected", [["toy_imbalanced", False], ["high_increasing", True]])
+def test_nonsymmetric(setting, expected):
+    """
+    Test to see if symmetric rewards on tree
+    """
+
+    env = MouselabEnv.new_registered(setting)
+
+    symmetric = True
+    depth_values = {}
+    for node in env.mdp_graph.nodes:
+        if env.mdp_graph.nodes[node]['depth'] not in depth_values:
+            depth_values[env.mdp_graph.nodes[node]['depth']] = hash(env.init[node])
+        else:
+            if depth_values[env.mdp_graph.nodes[node]['depth']] != hash(env.init[node]):
+                symmetric = False
+
+    assert symmetric == expected

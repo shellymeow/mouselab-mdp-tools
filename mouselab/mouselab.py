@@ -421,10 +421,45 @@ class MouselabEnv(gym.Env):
 
     @classmethod
     def new_symmetric_registered(cls, experiment_setting, seed=None, **kwargs):
+        if registry(experiment_setting).reward_inputs != "depth":
+            raise ValueError("Symmetric can only be used if reward input is depth.")
+
         branching = registry(experiment_setting).branching
         reward = registry(experiment_setting).reward_function
 
         return MouselabEnv.new_symmetric(branching, reward, seed=seed, **kwargs)
+
+    def symmetric_branching(branching):
+        init = []
+        tree = []
+
+        def expand(d):
+            my_idx = len(init)
+            init.append(None)
+            children = []
+            tree.append(children)
+            for _ in range(get(d, branching, 0)):
+                child_idx = expand(d + 1)
+                children.append(child_idx)
+            return my_idx
+
+        expand(0)
+
+        return tree, init
+
+    @classmethod
+    def new_registered(cls, experiment_setting, seed=None, **kwargs):
+        if registry(experiment_setting).reward_inputs == "depth":
+            return MouselabEnv.new_symmetric_registered(experiment_setting, seed=seed, **kwargs)
+        elif registry(experiment_setting).reward_inputs == "node":
+            branching = registry(experiment_setting).branching
+            tree, init = MouselabEnv.symmetric_branching(branching)
+
+            reward = registry(experiment_setting).reward_function
+            init = [reward(node) for node in range(len(init))]
+            return cls(tree, init, seed=seed, **kwargs)
+        else:
+            raise ValueError("Symmetric can only be used if reward input is depth.")
 
     def _render(self, mode="notebook", close=False):
         if close:

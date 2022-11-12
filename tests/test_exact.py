@@ -12,7 +12,7 @@ exact_test_case_data = [
         "env": {
             "name": "small_test_case",
             "branching": [1, 2],
-            "reward_inputs": ["depth"],
+            "reward_inputs": "depth",
             "reward_dictionary": {1: Categorical([-500]), 2: Categorical([-60, 60])},
         }
     },
@@ -20,7 +20,7 @@ exact_test_case_data = [
         "env": {
             "name": "medium_test_case",
             "branching": [1, 2, 1],
-            "reward_inputs": ["depth"],
+            "reward_inputs": "depth",
             "reward_dictionary": {
                 1: Categorical([-500]),
                 2: Categorical([-60, 60]),
