@@ -156,10 +156,7 @@ def forward_search_cost(added_cost=1, inspection_cost=1, include_start=False):
         if not include_start:
             revealed_nodes.remove(0)
 
-        try:
-            successors = chain(*(graph.successors(node) for node in revealed_nodes))
-        except:
-            x=1
+        successors = chain(*(graph.successors(node) for node in revealed_nodes))
 
         if action in successors:
             return -(inspection_cost + added_cost)
