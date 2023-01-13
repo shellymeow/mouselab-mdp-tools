@@ -11,6 +11,7 @@ from mouselab.utils import PriorityQueue, softmax
 
 np.set_printoptions(precision=3, linewidth=200)
 
+
 class Policy(Component):
     """Chooses actions."""
 
@@ -37,6 +38,7 @@ class FunctionPolicy(Policy):
     def act(self, state):
         return self.policy(state)
 
+
 class ValuePolicy(Policy):
     def __init__(self, preference=None, seed=None):
         super().__init__(seed=seed)
@@ -59,6 +61,27 @@ class ValuePolicy(Policy):
             (self.preference(state, a) for a in possible_actions), dtype=np.float64
         )
         return q, possible_actions
+
+
+class DiscountFactorMixin:
+    def __init__(self, gamma=1, discount_first_step=False, **kwargs):
+        self.gamma = gamma
+        self.discount_first_step = discount_first_step
+        super().__init__(**kwargs)
+
+    def preferences(self, state):
+        q, possible_actions = super().preferences(state)
+
+        if self.discount_first_step:
+            offset = 0
+        else:
+            offset = -1
+
+        discounted_q = np.asarray([node_q * self.gamma ** (self.env.mdp_graph.nodes[action][
+                                                               "depth"] + offset) if action in self.env.mdp_graph.nodes else node_q
+                                   for node_q, action in zip(q, possible_actions)])
+        return discounted_q, possible_actions
+
 
 class RandomPolicy(Policy):
     """Chooses actions randomly."""
@@ -85,8 +108,8 @@ class RandomPolicy(Policy):
 class SoftmaxPolicy(ValuePolicy):
     """Samples actions from a softmax over preferences."""
 
-    def __init__(self, preference=None, temp=1e-9, noise=1e-9, seed=None):
-        super().__init__(preference=preference, seed=seed)
+    def __init__(self, preference=None, temp=1e-9, noise=1e-9, seed=None, **kwargs):
+        super().__init__(preference=preference, seed=seed, **kwargs)
         self.temp = temp
         self.noise = noise
 
@@ -116,11 +139,12 @@ class SoftmaxPolicy(ValuePolicy):
         )
         return action_probs
 
+
 class OptimalQ(ValuePolicy):
     """Samples from optimal preferences in a state."""
 
-    def __init__(self, preference=None, seed=None):
-        super().__init__(preference=preference, seed=seed)
+    def __init__(self, preference=None, seed=None, **kwargs):
+        super().__init__(preference=preference, seed=seed, **kwargs)
 
     def act(self, state):
         probs = self.action_distribution(state)
@@ -148,6 +172,16 @@ class OptimalQ(ValuePolicy):
             dtype=np.float64,
         )
         return action_probs
+
+
+class DiscountedSoftmaxPolicy(DiscountFactorMixin, SoftmaxPolicy):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+class DiscountedOptimalQ(DiscountFactorMixin, OptimalQ):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 
 class RandomTreePolicy(Policy):
@@ -331,14 +365,14 @@ class GeneralizedAdvantageEstimation(Policy):
     """
 
     def __init__(
-        self,
-        actor_lr=0.001,
-        critic_lr=0.005,
-        discount=0.99,
-        actor_lambda=1,
-        critic_lambda=1,
-        seed=None,
-        **kwargs
+            self,
+            actor_lr=0.001,
+            critic_lr=0.005,
+            discount=0.99,
+            actor_lambda=1,
+            critic_lambda=1,
+            seed=None,
+            **kwargs
     ):
         super().__init__(seed=seed)
         self.discount = discount
@@ -560,9 +594,9 @@ class ValSearchPolicy(Policy):
                 self.node_history.append(
                     {
                         "path": node1.path,
-                        "r": node1.reward,
-                        "b": self.env._observe(node1.state)[-1],
-                        "v": -eval_node(node1),
+                        "r"   : node1.reward,
+                        "b"   : self.env._observe(node1.state)[-1],
+                        "v"   : -eval_node(node1),
                     }
                 )
                 reward_to_state[s1] = node1.reward
