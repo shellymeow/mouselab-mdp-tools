@@ -45,7 +45,13 @@ class MetaControllerMouselab(MouselabEnv):
             "vpi_action" : self.vpi_action,
             "vpi" : self.vpi,
             "expected_term_reward" : self.expected_term_reward,
+            "next_level_expected_term_reward": self.next_level_expected_term_reward,
         }
+
+    def next_level_expected_term_reward(self, state, action):
+        if action == self.term_action:
+            return self.expected_term_reward(state)
+        return sum([p * self.expected_term_reward(state) for p, state, _ in self.results(state, action)])
 
     def ground_truth_reward(self):
         """Returns the ground truth value of the best possible path.

@@ -15,8 +15,9 @@ np.set_printoptions(precision=3, linewidth=200)
 class Policy(Component):
     """Chooses actions."""
 
-    def __init__(self):
+    def __init__(self, seed=None):
         super().__init__()
+        self.rng = default_rng(seed)
 
     @abstractmethod
     def act(self, state):
@@ -38,12 +39,55 @@ class FunctionPolicy(Policy):
         return self.policy(state)
 
 
+class ValuePolicy(Policy):
+    def __init__(self, preference=None, seed=None):
+        super().__init__(seed=seed)
+        if preference is None:
+            assert hasattr(self, "preference")
+        elif isinstance(preference, dict):
+            self.preference = lambda state, action: preference[(state, action)]
+        else:
+            self.preference = preference
+
+    def preferences(self, state):
+        """
+        Finds the Q values for possible actions in a state
+        :param state: state of interest
+        :return: q values, respective possible_actions
+        """
+        # need to first only do softmax over possible actions
+        possible_actions = np.fromiter(self.env.actions(state), dtype=int)
+        q = np.fromiter(
+            (self.preference(state, a) for a in possible_actions), dtype=np.float64
+        )
+        return q, possible_actions
+
+
+class DiscountFactorMixin:
+    def __init__(self, gamma=1, discount_first_step=False, **kwargs):
+        self.gamma = gamma
+        self.discount_first_step = discount_first_step
+        super().__init__(**kwargs)
+
+    def preferences(self, state):
+        q, possible_actions = super().preferences(state)
+
+        if self.discount_first_step:
+            offset = 0
+        else:
+            offset = -1
+
+        discounted_q = np.asarray([node_q * self.gamma ** (self.env.mdp_graph.nodes[action][
+                                                               "depth"] + offset) if action in self.env.mdp_graph.nodes else node_q
+                                   for node_q, action in zip(q, possible_actions)])
+        return discounted_q, possible_actions
+
+
 class RandomPolicy(Policy):
     """Chooses actions randomly."""
 
     def __init__(self, seed=None):
-        super().__init__()
-        self.rng = default_rng(seed)
+        super().__init__(seed=seed)
 
     def act(self, state):
         probabilities = self.action_distribution(state)
@@ -61,20 +105,13 @@ class RandomPolicy(Policy):
         return action_probabilities
 
 
-class SoftmaxPolicy(Policy):
+class SoftmaxPolicy(ValuePolicy):
     """Samples actions from a softmax over preferences."""
 
-    def __init__(self, preference=None, temp=1e-9, noise=1e-9, seed=None):
-        super().__init__()
-        if preference is None:
-            assert hasattr(self, "preference")
-        elif isinstance(preference, dict):
-            self.preference = lambda state, action: preference[(state, action)]
-        else:
-            self.preference = preference
+    def __init__(self, preference=None, temp=1e-9, noise=1e-9, seed=None, **kwargs):
+        super().__init__(preference=preference, seed=seed, **kwargs)
         self.temp = temp
         self.noise = noise
-        self.rng = default_rng(seed)
 
     def act(self, state):
         probs = self.action_distribution(state)
@@ -102,32 +139,12 @@ class SoftmaxPolicy(Policy):
         )
         return action_probs
 
-    def preferences(self, state):
-        """
-        Finds the Q values for possible actions in a state
-        :param state: state of interest
-        :return: q values, respective possible_actions
-        """
-        # need to first only do softmax over possible actions
-        possible_actions = np.fromiter(self.env.actions(state), dtype=int)
-        q = np.fromiter(
-            (self.preference(state, a) for a in possible_actions), dtype=np.float64
-        )
-        return q, possible_actions
 
-
-class OptimalQ(Policy):
+class OptimalQ(ValuePolicy):
     """Samples from optimal preferences in a state."""
 
-    def __init__(self, preference=None, seed=None):
-        super().__init__()
-        if preference is None:
-            assert hasattr(self, "preference")
-        elif isinstance(preference, dict):
-            self.preference = lambda state, action: preference[(state, action)]
-        else:
-            self.preference = preference
-        self.rng = default_rng(seed)
+    def __init__(self, preference=None, seed=None, **kwargs):
+        super().__init__(preference=preference, seed=seed, **kwargs)
 
     def act(self, state):
         probs = self.action_distribution(state)
@@ -156,36 +173,33 @@ class OptimalQ(Policy):
         )
         return action_probs
 
-    def preferences(self, state):
-        """
-        Finds the Q values for possible actions in a state
-        :param state: state of interest
-        :return: q values, respective possible_actions
-        """
-        # need to first only do softmax over possible actions
-        possible_actions = np.fromiter(self.env.actions(state), dtype=int)
-        q = np.fromiter(
-            (self.preference(state, a) for a in possible_actions), dtype=np.float64
-        )
-        return q, possible_actions
+
+class DiscountedSoftmaxPolicy(DiscountFactorMixin, SoftmaxPolicy):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+class DiscountedOptimalQ(DiscountFactorMixin, OptimalQ):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 
 class RandomTreePolicy(Policy):
     """Chooses actions randomly."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, seed=None):
+        super().__init__(seed=seed)
 
     def act(self, state):
         actions = list(self.env.actions(self.env._state))
-        return random.choice(actions)
+        return self.rng.choice(actions)
 
 
 class MaxQPolicy(Policy):
     """Chooses the action with highest Q value."""
 
-    def __init__(self, Q, epsilon=0.5, anneal=0.95, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, Q, epsilon=0.5, anneal=0.95, seed=None, **kwargs):
+        super().__init__(seed=seed, **kwargs)
         self.Q = Q
         self.epsilon = epsilon
         self.anneal = anneal
@@ -193,41 +207,23 @@ class MaxQPolicy(Policy):
     def act(self, state, anneal_step=0):
         q = self.Q.predict(state)
         epsilon = self.epsilon * self.anneal ** anneal_step
-        if np.random.rand() < epsilon:
-            noise = np.random.random(q.shape) * 1000
+        if self.rng.rand() < epsilon:
+            noise = self.rng.random(q.shape) * 1000
         else:
-            noise = np.random.random(q.shape) * 0.001
+            noise = self.rng.random(q.shape) * 0.001
         return np.argmax(q + noise)
 
 
-class LiederPolicy(Policy):
+class LiederPolicy(OptimalQ):
     """The meta-policy of Lieder et al. (2017) AAAI."""
 
     def __init__(self, theta, seed=None):
+        super().__init__(seed=seed)
         self.theta = np.array(theta)
-        self.rng = default_rng(seed)
 
     def act(self, state):
         probs = self.action_distribution(state)
         return self.rng.choice(len(probs), p=probs)
-
-    def action_distribution(self, state):
-        q, possible_actions = self.preferences(state)
-        max_q = np.amax(q)
-        max_actions = [
-            curr_action
-            for curr_q, curr_action in zip(q, possible_actions)
-            if np.abs(max_q - curr_q) < np.finfo(np.float).eps
-        ]
-
-        action_probs = np.fromiter(
-            (
-                0 if action not in max_actions else 1.0 / len(max_actions)
-                for action in range(self.n_action)
-            ),
-            dtype=np.float64,
-        )
-        return action_probs
 
     def preferences(self, state):
         possible_actions = np.fromiter(self.env.actions(state), dtype=int)
@@ -242,15 +238,15 @@ class MaxQSamplePolicy(Policy):
 
     `Q.predict` must have the kwarg `return_var`."""
 
-    def __init__(self, Q, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, Q, seed=None, **kwargs):
+        super().__init__(seed=seed, **kwargs)
         self.Q = Q
         self.save_regret = True
 
     def act(self, state):
         q, var = self.Q.predict(state, return_var=True)
         sigma = var ** 0.5
-        q_samples = q + np.random.randn() * sigma
+        q_samples = q + self.rng.randn() * sigma
         a = np.argmax(q_samples)
         if self.save_regret:
             q = q.flat
@@ -263,8 +259,8 @@ class MaxQSamplePolicy(Policy):
 class ActorCritic(Policy):
     """docstring for ActorCritic"""
 
-    def __init__(self, critic, actor_lr=0.001, discount=0.99, actor_lambda=1, **kwargs):
-        super().__init__()
+    def __init__(self, critic, actor_lr=0.001, discount=0.99, actor_lambda=1, seed=None, **kwargs):
+        super().__init__(seed=seed)
         self.critic = critic
         self.discount = discount
         self.actor_lambda = actor_lambda
@@ -307,12 +303,12 @@ class ActorCritic(Policy):
 
     def act(self, state):
         policy = self.actor.predict(state.reshape(1, -1)).flatten()
-        return np.random.choice(self.n_action, 1, p=policy)[0]
+        return self.rng.choice(self.n_action, 1, p=policy)[0]
 
     # update networks every episode
     def finish_episode(self, trace):
         if len(self.memory) >= self.batch_size:
-            batch = np.random.choice(self.memory, self.batch_size)
+            batch = self.rng.choice(self.memory, self.batch_size)
             batch.append(trace)
             self.train_batch(batch)
 
@@ -369,15 +365,16 @@ class GeneralizedAdvantageEstimation(Policy):
     """
 
     def __init__(
-        self,
-        actor_lr=0.001,
-        critic_lr=0.005,
-        discount=0.99,
-        actor_lambda=1,
-        critic_lambda=1,
-        **kwargs
+            self,
+            actor_lr=0.001,
+            critic_lr=0.005,
+            discount=0.99,
+            actor_lambda=1,
+            critic_lambda=1,
+            seed=None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(seed=seed)
         self.discount = discount
         self.actor_lambda = actor_lambda
         self.critic_lambda = critic_lambda
@@ -448,12 +445,12 @@ class GeneralizedAdvantageEstimation(Policy):
 
     def act(self, state):
         policy = self.actor.predict(state.reshape(1, -1)).flatten()
-        return np.random.choice(self.n_action, 1, p=policy)[0]
+        return self.rng.choice(self.n_action, 1, p=policy)[0]
 
     # update networks every episode
     def finish_episode(self, trace):
         if len(self._memory) >= self.batch_size:
-            batch = np.random.choice(self._memory, self.batch_size)
+            batch = self.rng.choice(self._memory, self.batch_size)
             batch.append(trace)
             self.train_batch(batch)
         else:
@@ -527,8 +524,8 @@ class FixedPlanPolicy(Policy):
 class ValSearchPolicy(Policy):
     """Searches for the maximum reward path using a model."""
 
-    def __init__(self, V, replan=False, epsilon=0, noise=1, anneal=1, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, V, replan=False, epsilon=0, noise=1, anneal=1, seed=None, **kwargs):
+        super().__init__(seed=seed, **kwargs)
         self.V = V
         self.replan = replan
         self.epsilon = epsilon
@@ -570,7 +567,7 @@ class ValSearchPolicy(Policy):
                 return np.inf  # the empty plan has infinite cost
             obs = env._observe(node.state)
             noise = (
-                np.random.rand() * (self.noise * self.anneal ** self.i_episode)
+                self.rng.rand() * (self.noise * self.anneal ** self.i_episode)
                 if noisy
                 else 0
             )
@@ -597,9 +594,9 @@ class ValSearchPolicy(Policy):
                 self.node_history.append(
                     {
                         "path": node1.path,
-                        "r": node1.reward,
-                        "b": self.env._observe(node1.state)[-1],
-                        "v": -eval_node(node1),
+                        "r"   : node1.reward,
+                        "b"   : self.env._observe(node1.state)[-1],
+                        "v"   : -eval_node(node1),
                     }
                 )
                 reward_to_state[s1] = node1.reward
