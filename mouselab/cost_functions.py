@@ -3,7 +3,7 @@ from itertools import chain
 from scipy.spatial import distance
 
 
-def linear_depth(static_cost_weight, depth_cost_weight):
+def linear_depth(static_cost_weight, depth_cost_weight, start_first_level=True):
     """
     Constructs function for linear depth cost
     :param static_cost_weight: cost experienced for all nodes
@@ -13,7 +13,7 @@ def linear_depth(static_cost_weight, depth_cost_weight):
     """
 
     # construct function, avoiding lambda for kwarg
-    def cost_function(state, action, graph=None, start_first_level=True):
+    def cost_function(state, action, graph=None):
         """
         :param state: current state (should include everything for cost)
         :param action: action
