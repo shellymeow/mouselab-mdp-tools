@@ -13,15 +13,19 @@ def linear_depth(static_cost_weight, depth_cost_weight):
     """
 
     # construct function, avoiding lambda for kwarg
-    def cost_function(state, action, graph=None):
+    def cost_function(state, action, graph=None, start_first_level=True):
         """
         :param state: current state (should include everything for cost)
         :param action: action
         :param graph: graph
         """
-        depth = graph.nodes[action]["depth"]
-        # if depth is 0 it is initial node so we return 0
-        return -(1 * static_cost_weight + depth * depth_cost_weight) if depth > 0 else 0
+        if start_first_level:
+            depth_offset = 0
+        else:
+            depth_offset = 1
+        depth = graph.nodes[action]["depth"] - depth_offset
+        # if depth is 0 or -1 it is initial node so we return 0
+        return -(1 * static_cost_weight + depth * depth_cost_weight) if depth > (0 - depth_offset) else 0
 
     return cost_function
 
