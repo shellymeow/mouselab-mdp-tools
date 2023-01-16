@@ -6,6 +6,8 @@ from mouselab.graph_utils import get_structure_properties
 from mouselab.mouselab import MouselabEnv
 from mouselab.envs.registry import register
 
+import numpy as np
+
 structure = {
     "layout" : {
         "0" : [0, 0],
@@ -117,3 +119,29 @@ def test_nonsymmetric(setting, expected):
                 symmetric = False
 
     assert symmetric == expected
+
+@pytest.mark.parametrize("power_utility", [0.1, .5 , 1])
+def test_power_utility(power_utility):
+    """
+    Test power utility function
+    """
+
+    env = MouselabEnv.new_registered("high_increasing")
+    env_with_power_utility = MouselabEnv.new_registered("high_increasing", power_utility=power_utility, ground_truth=env.ground_truth)
+
+    # 4 random actions
+    for action in range(4):
+        possible_actions = list(env.actions(env._state))
+        possible_actions.remove(env.term_action)
+
+        curr_action = np.random.choice(possible_actions)
+        print(curr_action)
+
+        assert env.expected_term_reward(env._state)**(power_utility) == env_with_power_utility.expected_term_reward(env_with_power_utility._state)
+        env.step(curr_action)
+        env_with_power_utility.step(curr_action)
+
+    _, _, reward, _ = env.step(env.term_action)
+    _, _, reward_power_utility, _ = env_with_power_utility.step(env.term_action)
+
+    assert reward**(power_utility) == reward_power_utility
