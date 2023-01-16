@@ -137,11 +137,19 @@ def test_power_utility(power_utility):
         curr_action = np.random.choice(possible_actions)
         print(curr_action)
 
-        assert env.expected_term_reward(env._state)**(power_utility) == env_with_power_utility.expected_term_reward(env_with_power_utility._state)
+        if env.expected_term_reward(env._state) >= 0:
+            assert env.expected_term_reward(env._state)**(power_utility) == env_with_power_utility.expected_term_reward(env_with_power_utility._state)
+        else:
+            assert - abs(env.expected_term_reward(env._state)) ** (
+                power_utility) == env_with_power_utility.expected_term_reward(env_with_power_utility._state)
+
         env.step(curr_action)
         env_with_power_utility.step(curr_action)
 
     _, _, reward, _ = env.step(env.term_action)
     _, _, reward_power_utility, _ = env_with_power_utility.step(env.term_action)
 
-    assert reward**(power_utility) == reward_power_utility
+    if reward >= 0:
+        assert reward**(power_utility) == reward_power_utility
+    else:
+        assert - abs(reward) ** (power_utility) == reward_power_utility
