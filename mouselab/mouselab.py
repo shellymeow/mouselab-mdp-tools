@@ -279,9 +279,14 @@ class MouselabEnv(gym.Env):
 
     @lru_cache(CACHE_SIZE)
     def myopic_voc(self, action, state) -> NonNegativeFloat:
-        return self.node_value_after_observe(
-            (action,), 0, state
-        ).expectation() - self.expected_term_reward(state)
+        if action == self.term_action:
+            # no information from final action
+            # explicitly set here due to numerical considerations
+            return 0
+        else:
+            return self.node_value_after_observe(
+                (action,), 0, state
+            ).expectation() - self.expected_term_reward(state)
 
     @lru_cache(CACHE_SIZE)
     def vpi_branch(self, action, state) -> NonNegativeFloat:
