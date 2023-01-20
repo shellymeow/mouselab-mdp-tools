@@ -41,7 +41,6 @@ class MouselabEnv(gym.Env):
         term_belief=True,
         sample_term_reward=False,
         include_last_action : bool = False,
-        power_utility : int = 1,
         seed=None,
         mdp_graph_properties={},
         last_action_info = None
@@ -78,7 +77,6 @@ class MouselabEnv(gym.Env):
             self.ground_truth[0] = 0.0
 
         self.include_last_action = include_last_action
-        self.power_utility = power_utility
 
         # potentially used for hashing that depends on last action
         if last_action_info == "distance":
@@ -257,11 +255,7 @@ class MouselabEnv(gym.Env):
 
     @lru_cache(CACHE_SIZE)
     def expected_term_reward(self, state, action=None):
-        expected_term_reward = self.term_reward(state).expectation()
-        if expected_term_reward >= 0:
-            return expected_term_reward ** self.power_utility
-        else:
-            return - abs(expected_term_reward) ** self.power_utility
+        return self.term_reward(state).expectation()
 
     def node_value(self, node, state=None):
         """A distribution over total rewards after the given node."""
