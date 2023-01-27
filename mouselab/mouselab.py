@@ -258,10 +258,7 @@ class MouselabEnv(gym.Env):
     @lru_cache(CACHE_SIZE)
     def expected_term_reward(self, state, action=None):
         expected_term_reward = self.term_reward(state).expectation()
-        if expected_term_reward >= 0:
-            return expected_term_reward ** self.power_utility
-        else:
-            return - abs(expected_term_reward) ** self.power_utility
+        return np.sign(expected_term_reward) * np.abs(expected_term_reward) ** self.power_utility
 
     def node_value(self, node, state=None):
         """A distribution over total rewards after the given node."""
