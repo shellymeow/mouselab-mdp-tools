@@ -287,9 +287,12 @@ class MouselabEnv(gym.Env):
             # explicitly set here due to numerical considerations
             return 0
         else:
-            return self.node_value_after_observe(
+            gain_from_inspecting = self.node_value_after_observe(
                 (action,), 0, state
-            ).expectation() - self.expected_term_reward(state)
+            ).expectation()
+
+            corrected_gain_from_inspecting = np.sign(gain_from_inspecting) * np.abs(gain_from_inspecting) ** self.power_utility
+            return corrected_gain_from_inspecting - self.expected_term_reward(state)
 
     @lru_cache(CACHE_SIZE)
     def vpi_branch(self, action, state) -> NonNegativeFloat:
