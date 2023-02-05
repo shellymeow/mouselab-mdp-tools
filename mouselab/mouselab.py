@@ -258,10 +258,7 @@ class MouselabEnv(gym.Env):
     @lru_cache(CACHE_SIZE)
     def expected_term_reward(self, state, action=None):
         expected_term_reward = self.term_reward(state).expectation()
-        if expected_term_reward >= 0:
-            return expected_term_reward ** self.power_utility
-        else:
-            return - abs(expected_term_reward) ** self.power_utility
+        return np.sign(expected_term_reward) * np.abs(expected_term_reward) ** self.power_utility
 
     def node_value(self, node, state=None):
         """A distribution over total rewards after the given node."""
@@ -285,9 +282,17 @@ class MouselabEnv(gym.Env):
 
     @lru_cache(CACHE_SIZE)
     def myopic_voc(self, action, state) -> NonNegativeFloat:
-        return self.node_value_after_observe(
-            (action,), 0, state
-        ).expectation() - self.expected_term_reward(state)
+        if action == self.term_action:
+            # no information from final action
+            # explicitly set here due to numerical considerations
+            return 0
+        else:
+            gain_from_inspecting = self.node_value_after_observe(
+                (action,), 0, state
+            ).expectation()
+
+            corrected_gain_from_inspecting = np.sign(gain_from_inspecting) * np.abs(gain_from_inspecting) ** self.power_utility
+            return corrected_gain_from_inspecting - self.expected_term_reward(state)
 
     @lru_cache(CACHE_SIZE)
     def vpi_branch(self, action, state) -> NonNegativeFloat:
