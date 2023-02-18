@@ -137,7 +137,7 @@ class OptimalQ(ValuePolicy):
         max_actions = [
             curr_action
             for curr_q, curr_action in zip(q, possible_actions)
-            if np.abs(max_q - curr_q) < np.finfo(np.float).eps
+            if np.abs(max_q - curr_q) < np.finfo(float).eps
         ]
 
         action_probs = np.fromiter(
