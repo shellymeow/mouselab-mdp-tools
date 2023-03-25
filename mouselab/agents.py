@@ -68,7 +68,7 @@ class Agent(ABC):
             )
             return trace
 
-    def _run_specific_episode(self, env, policy, max_steps=1000, render=False):
+    def _run_specific_episode(self, env, policy, max_steps=1000, render=False, fresh_start=True):
         # create trace dictionary
         trace = defaultdict(list)
         trace.update(
@@ -83,12 +83,15 @@ class Agent(ABC):
         )
 
         # start episode
-        new_state = env.reset()
+        if fresh_start:
+            new_state = env.reset()
+        else:
+            new_state = env._state
         self._start_episode(new_state)
 
         done = False
         num_steps = 0
-        while not done:
+        while not done and new_state != env.term_state:
             if num_steps == max_steps:
                 raise BaseException(f"Reached max steps: {max_steps}")
 
@@ -125,7 +128,7 @@ class Agent(ABC):
         self.i_episode += 1
         return dict(trace)
 
-    def run_many(self, num_episodes=None, pbar=True, track=(), **kwargs):
+    def run_many(self, num_episodes=None, pbar=True, fresh_start=True, **kwargs):
         """Runs several episodes, returns a summary of results."""
         if not self.env:
             raise RegistrationError("No environment registered.")
@@ -141,14 +144,22 @@ class Agent(ABC):
         elif isinstance(self.env, list):
             num_episodes = len(self.env)
 
+        # get the starting state if not fresh start
+        if not fresh_start and not isinstance(self.env, list):
+            starting_state = self.env._state
+
         data = defaultdict(list)
         for episode_idx in tqdm(range(num_episodes), disable=not pbar):
             if isinstance(self.env, list):
                 trace = self._run_specific_episode(
-                    self.env[episode_idx], self.policy, **kwargs
+                    self.env[episode_idx], self.policy, fresh_start=fresh_start, **kwargs
                 )
             else:
-                trace = self._run_specific_episode(self.env, self.policy, **kwargs)
+                if fresh_start:
+                    self.env.reset()
+                else:
+                    self.env._state = starting_state
+                trace = self._run_specific_episode(self.env, self.policy, fresh_start=fresh_start, **kwargs)
 
             data["n_steps"].append(len(trace["states"]))
             for k, v in trace.items():

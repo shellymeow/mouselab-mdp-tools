@@ -1,0 +1,17 @@
+features: # previously w1*features[1] + w2*features[3] + w3*features[2] + w4*features[0]
+  myopic_voc: # previously w1
+    'type': 'continuous'
+    'domain': (0,1)
+  vpi: # previously w2
+    'type': 'continuous'
+    'domain': (0,1)
+  cost: # previously w4
+    'type': 'continuous'
+    'domain': (1,len(env.tree)-1)
+  vpi_action:
+    'type': 'secondary'
+constraints:
+  vpi_sum_geq: #  enforce vpi_action + myopic_voc + vpi = 1, we don't use both leq and geq because sampling takes too long
+    constraint : 'x[:,0] + x[:,1] - 1' # myopic_voc + vpi <= 1
+secondary_variables:
+  vpi_action: 'lambda W : 1 - W[:,0] - W[:,1]' # previously w3

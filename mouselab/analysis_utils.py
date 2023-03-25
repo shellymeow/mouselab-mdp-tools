@@ -73,20 +73,16 @@ def parse_json(df):
             pass
 
 
-def get_data(version, data_path="../data"):
+def get_data(version, data_path=None):
+    if data_path is None:
+        data_path = Path(__file__).parents[2].joinpath("data/human")
     data = {}
-    for file in glob("{}/human/{}/*.csv".format(data_path, version)):
-        name = os.path.basename(file)[:-4]
-        df = pd.read_csv(file)
-        parse_json(df)
-        data[name] = drop_nan_cols(df)
-
-    # n_trials = df.pid.value_counts().max()
-    # complete = (
-    #     df.pid.value_counts(sort=False).where(lambda x: x == n_trials).dropna().index
-    # )
-    # df = df.set_index("pid").ix[complete].reset_index()
-    # pdf = pdf.ix[complete]
+    for file in data_path.joinpath(f"{version}").glob("*"):
+        name = file.stem
+        if file.suffix == ".csv":
+            df = pd.read_csv(file)
+            parse_json(df)
+            data[name] = drop_nan_cols(df)
 
     return data
 

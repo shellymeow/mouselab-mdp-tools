@@ -3,7 +3,7 @@ from itertools import chain
 from scipy.spatial import distance
 
 
-def linear_depth(static_cost_weight, depth_cost_weight):
+def linear_depth(static_cost_weight, depth_cost_weight, start_first_level=True):
     """
     Constructs function for linear depth cost
     :param static_cost_weight: cost experienced for all nodes
@@ -13,10 +13,19 @@ def linear_depth(static_cost_weight, depth_cost_weight):
     """
 
     # construct function, avoiding lambda for kwarg
-    def cost_function(node, last_action=None, graph=None):
-        depth = graph.nodes[node]["depth"]
-        # if depth is 0 it is initial node so we return 0
-        return -(1 * static_cost_weight + depth * depth_cost_weight) if depth > 0 else 0
+    def cost_function(state, action, graph=None):
+        """
+        :param state: current state (should include everything for cost)
+        :param action: action
+        :param graph: graph
+        """
+        if start_first_level:
+            depth_offset = 0
+        else:
+            depth_offset = 1
+        depth = graph.nodes[action]["depth"] - depth_offset
+        # if depth is 0 or -1 it is initial node so we return 0
+        return -(1 * static_cost_weight + depth * depth_cost_weight) if depth > (0 - depth_offset) else 0
 
     return cost_function
 
@@ -35,13 +44,18 @@ def side_cost(given_cost, side_preferences):
         raise ValueError("Side preferences array must sum to 1")
 
     # construct function, avoiding lambda for kwarg
-    def cost_function(node, last_action=None, graph=None):
+    def cost_function(state, action, graph=None):
+        """
+        :param state: current state (should include everything for cost)
+        :param action: action
+        :param graph: graph
+        """
         equitable_distribution = 1 / len(side_preferences)
         adjusted_side_preferences = {
             cluster: pref / equitable_distribution * given_cost
             for cluster, pref in side_preferences.items()
         }
-        return -(adjusted_side_preferences[graph.nodes[node]["cluster"]])
+        return -(adjusted_side_preferences[graph.nodes[action]["cluster"]])
 
     return cost_function
 
@@ -65,14 +79,14 @@ def distance_graph_cost(
     """
 
     # construct function, avoiding lambda for kwarg
-    def cost_function(node, last_action=None, graph=None):
+    def cost_function(state, action, graph=None):
         """
-        :param node: node that is clicked on
-        :param last_action: action before this (can be non-revealing action if recorded)
+        :param state: current state (should include everything for cost)
+        :param action: action
+        :param graph: graph
         """
-
         distance = distance_function(
-            graph.nodes[node]["layout"], graph.nodes[last_action]["layout"]
+            graph.nodes[action]["layout"], graph.nodes[state[-1]]["layout"]
         )
         if max_penalty is None:
             return -(given_cost * 1 + distance_multiplier * distance)
@@ -96,22 +110,22 @@ def backward_search_cost(added_cost=1, inspection_cost=1, include_start=False):
         include_start = bool(include_start)
 
     # construct function, avoiding lambda for kwarg
-    def cost_function(node, last_action=None, graph=None):
+    def cost_function(state, action, graph=None):
         """
-        :param node: node that is clicked on
-        :param last_action: action before this (can be non-revealing action if recorded)
+        :param state: current state (should include everything for cost)
+        :param action: action
+        :param graph: graph
         """
-
         revealed_nodes = [
-            node for node, info in graph.nodes(data=True) if info["revealed"]
+            node_idx for node_idx, node in enumerate(state) if not hasattr(node, "sample") and node_idx in graph.nodes
         ]
 
         if not include_start:
             revealed_nodes.remove(0)
 
-        predecessors = chain(*(graph.predecessors(state) for state in revealed_nodes))
+        predecessors = chain(*(graph.predecessors(node) for node in revealed_nodes))
 
-        if node in predecessors:
+        if action in predecessors:
             return -(inspection_cost + added_cost)
         else:
             return -(inspection_cost)
@@ -133,21 +147,22 @@ def forward_search_cost(added_cost=1, inspection_cost=1, include_start=False):
         include_start = bool(include_start)
 
     # construct function, avoiding lambda for kwarg
-    def cost_function(node, last_action=None, graph=None):
+    def cost_function(state, action, graph=None):
         """
-        :param node: node that is clicked on
-        :param last_action: action before this (can be non-revealing action if recorded)
+        :param state: current state (should include everything for cost)
+        :param action: action
+        :param graph: graph
         """
         revealed_nodes = [
-            node for node, info in graph.nodes(data=True) if info["revealed"]
+            node_idx for node_idx, node in enumerate(state) if not hasattr(node, "sample") and node_idx in graph.nodes
         ]
 
         if not include_start:
             revealed_nodes.remove(0)
 
-        successors = chain(*(graph.successors(state) for state in revealed_nodes))
+        successors = chain(*(graph.successors(node) for node in revealed_nodes))
 
-        if node in successors:
+        if action in successors:
             return -(inspection_cost + added_cost)
         else:
             return -(inspection_cost)
@@ -169,21 +184,22 @@ def neighbor_search_cost(added_cost=1, inspection_cost=1, include_start=False):
         include_start = bool(include_start)
 
     # construct function, avoiding lambda for kwarg
-    def cost_function(node, last_action=None, graph=None):
+    def cost_function(state, action, graph=None):
         """
-        :param node: node that is clicked on
-        :param last_action: action before this (can be non-revealing action if recorded)
+        :param state: current state (should include everything for cost)
+        :param action: action
+        :param graph: graph
         """
         revealed_nodes = [
-            node for node, info in graph.nodes(data=True) if info["revealed"]
+            node_idx for node_idx, node in enumerate(state) if not hasattr(node, "sample") and node_idx in graph.nodes
         ]
 
         if not include_start:
             revealed_nodes.remove(0)
 
-        neighbors = chain(*(graph.neighbors(state) for state in revealed_nodes))
+        neighbors = chain(*(graph.neighbors(node) for node in revealed_nodes))
 
-        if node in neighbors:
+        if action in neighbors:
             return -(inspection_cost + added_cost)
         else:
             return -(inspection_cost)
