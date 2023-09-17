@@ -98,7 +98,7 @@ class MouselabEnv(gym.Env):
                 state, action, graph=self.mdp_graph) if action != self.term_action else 0
         else:
             # make the cost function return scalar cost for all inputs if not callable
-            self.cost = lambda state, action: -abs(cost)
+            self.cost = lambda state, action: -abs(cost) if action != self.term_action else 0
 
         # Required for gym.Env API.
         self.action_space = spaces.Discrete(len(self.init) + 1)
