@@ -1,4 +1,5 @@
 from itertools import chain
+import networkx as nx
 
 from scipy.spatial import distance
 
@@ -96,18 +97,19 @@ def distance_graph_cost(
     return cost_function
 
 
-def backward_search_cost(added_cost=1, inspection_cost=1, include_start=False):
+def backward_search_cost(added_cost=1, inspection_cost=1, include_start=False, include_end=False):
     """
     Constructs function for reducing cost for nodes downstream of inspected nodes
     :param added_cost: cost to add if parent node not inspected
     :param inspection_cost: baseline cost to inspect
     :param include_start: whether to count start as 'inspected' node or not
+    :param include_end: whether to count end as 'inspected' node or not
     :return: function which adjusts cost so that nodes which are children
                                     of already inspected nodes are favored
     """
 
-    if not isinstance(include_start, bool):
-        include_start = bool(include_start)
+    include_start = bool(include_start)
+    include_end = bool(include_end)
 
     # construct function, avoiding lambda for kwarg
     def cost_function(state, action, graph=None):
@@ -125,17 +127,21 @@ def backward_search_cost(added_cost=1, inspection_cost=1, include_start=False):
 
         predecessors = chain(*(graph.predecessors(node) for node in revealed_nodes))
 
-        if action in predecessors:
-            return -(inspection_cost + added_cost)
-        else:
+        final_nodes = []
+        if include_end:
+            final_nodes = [node_idx for node_idx, node in enumerate(state) if hasattr(node, "sample") and len([*graph.successors(node_idx)])==0]
+
+        if action in predecessors or action in final_nodes:
             return -(inspection_cost)
+        else:
+            return -(inspection_cost + added_cost)
 
     return cost_function
 
 
 def forward_search_cost(added_cost=1, inspection_cost=1, include_start=False):
     """
-    Constructs function for reducing cost for nodes upstream of inspected nodes
+    Constructs function for increasing cost for nodes NOT upstream of inspected nodes
     :param added_cost: cost to add if parent node not inspected
     :param inspection_cost: baseline cost to inspect
     :param include_start: whether to count start as 'inspected' node or not
@@ -163,45 +169,8 @@ def forward_search_cost(added_cost=1, inspection_cost=1, include_start=False):
         successors = chain(*(graph.successors(node) for node in revealed_nodes))
 
         if action in successors:
-            return -(inspection_cost + added_cost)
-        else:
             return -(inspection_cost)
-
-    return cost_function
-
-
-def neighbor_search_cost(added_cost=1, inspection_cost=1, include_start=False):
-    """
-    Constructs function for reducing cost for nodes adjacent to inspected nodes
-    :param added_cost: cost to add if parent node not inspected
-    :param inspection_cost: baseline cost to inspect
-    :param include_start: whether to count start as 'inspected' node or not
-    :return: function which adjusts cost so that nodes which are parents
-                                    of already inspected nodes are favored
-    """
-
-    if not isinstance(include_start, bool):
-        include_start = bool(include_start)
-
-    # construct function, avoiding lambda for kwarg
-    def cost_function(state, action, graph=None):
-        """
-        :param state: current state (should include everything for cost)
-        :param action: action
-        :param graph: graph
-        """
-        revealed_nodes = [
-            node_idx for node_idx, node in enumerate(state) if not hasattr(node, "sample") and node_idx in graph.nodes
-        ]
-
-        if not include_start:
-            revealed_nodes.remove(0)
-
-        neighbors = chain(*(graph.neighbors(node) for node in revealed_nodes))
-
-        if action in neighbors:
-            return -(inspection_cost + added_cost)
         else:
-            return -(inspection_cost)
+            return -(inspection_cost + added_cost)
 
     return cost_function
